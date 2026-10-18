@@ -231,6 +231,12 @@ export function applyFeedback(progress, fb, exerciseIds) {
     out.messages.push('Göğüs ağrısı acil bir durumun belirtisi olabilir. Egzersizi hemen bırakın; ağrı sürüyorsa veya nefes darlığı, terleme, kola/çeneye yayılan ağrı varsa 112\'yi arayın.');
     return out;
   }
+  if (fb.numbness || fb.weakness) {
+    out.paused = true;
+    out.avoid = fb.pain ?? [];
+    out.messages.push('Uyuşma veya güç kaybı bildirdiniz. Bu belirtiler egzersizle düzeltilmeye çalışılmamalıdır: yük artırılmadı ve sonraki oturumlar durduruldu. Lütfen bir hekime veya fizyoterapiste değerlendirtin; ani başlayan güç kaybı, konuşma bozukluğu veya yüzde kayma varsa 112\'yi arayın.');
+    return out;
+  }
   if (fb.dizziness || fb.breathless) {
     out.paused = true;
     out.messages.push('Baş dönmesi veya olağan dışı nefes darlığı bildirdiniz. Yük artırılmadı ve sonraki oturumlar durduruldu. Belirtiler geçene kadar dinlenin; tekrarlarsa veya sürerse bir hekime danışın. Kendinizi iyi hissettiğinizde planı yeniden başlatabilirsiniz.');

@@ -197,7 +197,9 @@ export async function createTrainerScreen() {
         p.sessions[sIdx].items[i].coach = { reps: result.reps, date, reliable: result.reliable };
         // Gelişim paneli için yalnızca sayısal özet (görüntü yok); karşılaştırma aynı hareket türü içinde
         const sd = result.summary?.sides, lead = sd ? (sd.L.reps >= sd.R.reps ? sd.L : sd.R) : null;
-        const entry = { date, id: e.id, kind: e.camera, tr: e.tr, reps: result.reps, reliable: result.reliable, extreme: result.reliable && lead?.extreme.value != null ? lead.extreme : null };
+        const entry = { date, id: e.id, kind: e.camera, tr: e.tr, reps: result.reps, reliable: result.reliable, extreme: result.reliable && lead?.extreme.value != null ? lead.extreme : null,
+          asym: result.reliable ? result.summary?.asym ?? null : null, fps: result.summary?.fps ?? null,
+          sides: result.reliable && sd ? { L: { value: sd.L.extreme.value, u: sd.L.extreme.u }, R: { value: sd.R.extreme.value, u: sd.R.extreme.u } } : null };
         setT({ plan: p, coachLog: [...(T().coachLog ?? []), entry].slice(-200) });
       }
       session(sIdx);
@@ -216,6 +218,8 @@ export async function createTrainerScreen() {
         dizziness: document.getElementById('fb-dizzy').checked,
         breathless: document.getElementById('fb-breath').checked,
         chestPain: document.getElementById('fb-chest').checked,
+        numbness: document.getElementById('fb-numb').checked,
+        weakness: document.getElementById('fb-weak').checked,
       };
       const doneIds = s.items.filter((x) => x.done).map((x) => x.id);
       const res = applyFeedback(T().progress, fb, doneIds.length ? doneIds : s.items.map((x) => x.id));
@@ -238,6 +242,8 @@ export async function createTrainerScreen() {
       Object.entries(REGIONS).filter(([k]) => k !== 'denge').map(([k, t]) => h('button', { type: 'button', class: 'chip-btn', 'aria-pressed': 'false', dataset: { value: k }, onclick: (e) => e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true')) }, t))),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'fb-dizzy' }), h('span', {}, 'Baş dönmesi oldu')),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'fb-breath' }), h('span', {}, 'Olağan dışı nefes darlığı oldu')),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'fb-numb' }), h('span', {}, 'Uyuşma veya karıncalanma oldu')),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'fb-weak' }), h('span', {}, 'Kolda/bacakta güç kaybı hissettim')),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', id: 'fb-chest' }), h('span', {}, 'Göğüs ağrısı veya baskı hissi oldu')),
     h('div', { class: 'actions' }, h('button', { class: 'btn primary', type: 'submit', id: 'btn-feedback-save' }, 'Kaydet'))), 'feedback');
   }

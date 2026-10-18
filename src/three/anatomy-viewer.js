@@ -282,6 +282,16 @@ export class AnatomyViewer extends EventTarget {
     this._moveTo(new THREE.Vector3(0, 1.2, 0), new THREE.Vector3(0, 1.25, 2.6), true);
   }
 
+  /** Tüm vücudu (baştan ayağa) önden çerçeveler; "Bana Anlat" işaretlerinin hepsi görünsün diye. */
+  frameFullBody(animate = true) {
+    this.isolate(null);
+    this.select(null);
+    const t = Math.tan((this.camera.fov * Math.PI) / 360);
+    const usableH = Math.max(0.5, 1 - (this.insets?.bottom ?? 0) / Math.max(1, this.height));
+    const d = Math.max(1.12 / (t * usableH), 0.6 / (t * this.camera.aspect));
+    this._moveTo(new THREE.Vector3(0, 0.88, 0), new THREE.Vector3(0, 0.92, d), animate);
+  }
+
   _moveTo(target, position, animate) {
     if (!animate) {
       this.controls.target.copy(target);
@@ -405,6 +415,19 @@ export class AnatomyViewer extends EventTarget {
     }
     const hit = this.raycaster.intersectObjects(candidates, false)[0];
     return hit?.object.userData.structureId ?? null;
+  }
+
+  /**
+   * Model uzayındaki bir noktanın ekran konumu (piksel) ve kameraya göre derinliği; görüş dışında null.
+   * "Bana Anlat" bölge işaretleri için (dijital ikiz ölçeği uygulanır).
+   */
+  projectPoint(p) {
+    const v = new THREE.Vector3(...p).applyMatrix4(this.root.matrixWorld);
+    const toCam = this.camera.position.clone().sub(v);
+    v.project(this.camera);
+    if (v.z > 1 || Math.abs(v.x) > 1.02 || Math.abs(v.y) > 1.02) return null;
+    // Öne bakan (+Z) işaretler arkadan bakınca soluklaştırılır
+    return { x: (v.x + 1) / 2 * this.width, y: (1 - v.y) / 2 * this.height, front: toCam.z > 0 };
   }
 
   /** Görünür yapıların ekrandaki merkez noktaları (etiket yerleşimi için). */

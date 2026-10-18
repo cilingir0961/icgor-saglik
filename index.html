@@ -48,6 +48,8 @@
     <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
     <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="2"/><path d="m8 21 3-7 3 3v4M7 11l3-4h4l2 4 3 1M11 14l-1-4"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-explain" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M9 21v-6l-2-1V9.5A2.5 2.5 0 0 1 9.5 7h5A2.5 2.5 0 0 1 17 9.5"/><circle cx="17.5" cy="16.5" r="4.5"/><path d="M16.2 15.4a1.4 1.4 0 1 1 1.9 1.3c-.4.2-.6.5-.6.9M17.5 19.3v.1"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
   </svg>
 
@@ -68,10 +70,12 @@
       <div class="viewport" id="anatomy-viewport">
         <svg class="label-lines" id="anatomy-lines" aria-hidden="true"></svg>
         <div class="labels" id="anatomy-labels"></div>
+        <div class="insight-markers" id="insight-markers" hidden aria-label="Bana Anlat: ölçülen bölgeler"></div>
       </div>
       <div class="chip provenance" data-kind="atlas"><svg><use href="#i-shield"/></svg>Atlas modeli · kişiye ait tarama değil</div>
       <div class="sim-badge" id="sim-badge" hidden><svg><use href="#i-heart"/></svg><span id="sim-badge-text">SİMÜLASYON</span></div>
       <div class="float-tools">
+        <button class="tool insight-tool" id="btn-insight" aria-pressed="false"><svg><use href="#i-explain"/></svg><span>Bana Anlat</span></button>
         <button class="tool" id="btn-layers" aria-expanded="false" aria-controls="layers-panel"><svg><use href="#i-layers"/></svg><span>Katmanlar</span></button>
         <button class="tool" id="btn-structures" aria-controls="structures-panel"><svg><use href="#i-list"/></svg><span>Yapılar</span></button>
         <button class="tool" id="btn-anim" aria-expanded="false" aria-controls="anim-panel"><svg><use href="#i-pulse"/></svg><span>4D</span></button>
@@ -176,6 +180,7 @@
     </section>
 
     <!-- ================= v0.6: BUGÜN, ANTRENMAN, ASİSTAN, AKTİVİTE, GELİŞİM, BİLDİRİM, VERİ ================= -->
+    <section class="screen" id="screen-insight" aria-label="Bana Anlat: vücudumda nerelere dikkat etmeliyim"><div class="scan-page app-page" id="insight-page"></div></section>
     <section class="screen" id="screen-today" aria-label="Bugün"><div class="scan-page app-page" id="today-page"></div></section>
     <section class="screen" id="screen-trainer" aria-label="Antrenman"><div class="scan-page app-page" id="trainer-page"></div></section>
     <section class="screen" id="screen-assistant" aria-label="Yapay zekâ asistanı"><div class="scan-page app-page" id="assistant-page"></div></section>
@@ -268,6 +273,7 @@
   <dialog id="more-dialog" aria-labelledby="more-title">
     <div class="dialog-head"><h2 id="more-title">Daha fazla</h2><button class="icon-btn" data-close-dialog aria-label="Kapat"><svg><use href="#i-close"/></svg></button></div>
     <nav class="more-list" aria-label="Diğer ekranlar">
+      <a href="#/anlat" data-tab="insight"><svg><use href="#i-explain"/></svg><span>Bana Anlat — vücudumda nerelere dikkat etmeliyim?</span></a>
       <a href="#/aktivite" data-tab="activity"><svg><use href="#i-walk"/></svg><span>Aktivite ve adımlar</span></a>
       <a href="#/gelisim" data-tab="progress"><svg><use href="#i-chart"/></svg><span>Gelişim</span></a>
       <a href="#/bildirimler" data-tab="notify"><svg><use href="#i-bell"/></svg><span>Bildirimler ve hatırlatmalar</span></a>
@@ -275,6 +281,11 @@
       <a href="#/goruntu" data-tab="imaging"><svg><use href="#i-scan"/></svg><span>Tıbbi görüntü (DICOM)</span></a>
       <a href="#/verilerim" data-tab="data"><svg><use href="#i-lock"/></svg><span>Verilerim ve gizlilik</span></a>
     </nav>
+  </dialog>
+
+  <dialog id="insight-dialog" class="insight-sheet" aria-labelledby="insight-card-title">
+    <div class="dialog-head"><h2 id="insight-card-title">Bana Anlat</h2><button class="icon-btn" data-close-dialog aria-label="Kapat"><svg><use href="#i-close"/></svg></button></div>
+    <div class="dialog-body" id="insight-card"></div>
   </dialog>
 
   <dialog id="about-dialog" aria-labelledby="about-title">

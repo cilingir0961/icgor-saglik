@@ -4,8 +4,13 @@
 
 import { dayKey, adaptiveGoal, weekStats } from '../activity/steps.js';
 import { compareScans, windows } from '../analysis/compare.js';
+import { evaluate, regionHeadline } from '../insight/evaluate.js';
+import { bodySummary } from '../insight/summary.js';
+import { recommend } from '../insight/recommend.js';
+import { STATUS } from '../insight/regions.js';
 
 export const SHARE_CATEGORIES = {
+  findings: { tr: 'Bana Anlat bulguları', desc: 'Bölge renkleri (yeşil/sarı/turuncu/gri), ölçülen farkların cümleleri ± belirsizlik, ölçülmeyen bölgeler ve önerilen hafif hareketlerin adları.', sensitive: true },
   profile: { tr: 'Profil', desc: 'Yaş, boy, kilo, seviye, hedef, antrenman yeri/süresi ve bildirdiğiniz kısıtlı bölgeler.', sensitive: true },
   posture: { tr: 'Son tarama — duruş gözlemleri', desc: 'Ölçülen duruş göstergeleri, ± belirsizlik ve “ayırt edilebilir mi” sonucu. Görüntü gönderilmez.', sensitive: true },
   movements: { tr: 'Son tarama — hareket testleri', desc: 'Hareket açıklığı ve sağ–sol fark değerleri, ± belirsizlik.', sensitive: true },
@@ -57,6 +62,18 @@ export function buildContext(st, share = {}, now = new Date()) {
     }
     if (out.length) c.comparisons = out.slice(0, 8);
   }
+  if (share.findings && st.scans?.length + (st.trainer?.coachLog?.length ?? 0) > 0) {
+    const ev = evaluate(st, now);
+    const sm = bodySummary(ev);
+    const regions = Object.values(ev.regions).map((r) => ({ id: r.id, tr: r.tr, status: r.status, statusTr: STATUS[r.status].tr, text: regionHeadline(r) }));
+    const exercises = {};
+    for (const r of Object.values(ev.regions)) {
+      if (r.status !== 'sari' && r.status !== 'turuncu') continue;
+      const rec = recommend(r.id, st, now);
+      exercises[r.tr] = rec.blocked ? ['(belirti bildirildiği için öneri yok — uzmana danışın)'] : rec.exercises.map((e) => e.tr);
+    }
+    c.findings = { quality: sm.empty ? null : sm.text, regions, positives: sm.positives ?? [], next: sm.next, exercises, synthetic: ev.synthetic };
+  }
   if (share.workouts && st.trainer?.plan) {
     const week = (st.trainer.history ?? []).filter((x) => now - new Date(x.date) < 7 * 86400000);
     const lastH = st.trainer.history?.at(-1);
@@ -78,6 +95,12 @@ export function previewLines(ctx) {
   if (ctx.profile) {
     const p = ctx.profile;
     lines.push(`Profil: ${[p.age && `${p.age} yaş`, p.heightCm && `${p.heightCm} cm`, p.weightKg && `${p.weightKg} kg`, p.level && `seviye ${p.level}`, p.goal && `hedef ${p.goal}`, p.location && `yer ${p.location}`, p.daysPerWeek && `haftada ${p.daysPerWeek} gün`, p.minutesPerDay && `${p.minutesPerDay} dk`, p.limitations?.length && `kısıtlar: ${p.limitations.join(', ')}`].filter(Boolean).join(', ')}`);
+  }
+  if (ctx.findings) {
+    const f = ctx.findings;
+    if (f.quality) lines.push(`Bana Anlat: ${f.quality}`);
+    for (const r of f.regions) lines.push(`Bölge ${r.tr} [${r.statusTr}]: ${r.text}`);
+    for (const [k, v] of Object.entries(f.exercises)) lines.push(`Önerilen hareketler (${k}): ${v.join(', ')}`);
   }
   for (const o of ctx.posture ?? []) lines.push(`Duruş: ${o.tr}: ${o.value} ${o.unit} ± ${o.u}${o.experimental ? ' [deneysel]' : ''}${o.distinguishable ? ` → ${o.sense}` : o.distinguishable === false ? ' → nötrden ayırt edilemez' : ''}`);
   for (const m of ctx.movements ?? []) lines.push(`Hareket: ${m.tr}: ${m.value} ${m.unit} ± ${m.u}${m.experimental ? ' [deneysel]' : ''}`);

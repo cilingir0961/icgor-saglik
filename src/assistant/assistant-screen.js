@@ -7,6 +7,7 @@ import { h, icon } from '../scan/dom.js';
 import { SHARE_CATEGORIES, buildContext, previewLines } from './context.js';
 
 const QUICK = [
+  'Vücudumda nerelere dikkat etmeliyim?',
   '175 cm ve 90 kg\'ım, nereden başlamalıyım?',
   'Omuzlarım öne doğru duruyor, hangi hareketleri yapabilirim?',
   'Evde ekipmansız 20 dakikalık program hazırla',
