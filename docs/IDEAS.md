@@ -1,4 +1,4 @@
-# Fikirler: değerlendirme ve durum (v0.5)
+# Fikirler: değerlendirme ve durum (v0.5 – v0.6)
 
 Ölçütler: **Uygulanabilirlik** (bu mimaride, web/PWA, cihaz üzerinde), **Doğruluk** (ölçülebilir mi,
 nasıl doğrulanır), **Maliyet** (geliştirme + çalışma: pil/ısı/bellek; lisans), **Yarar** (kullanıcıya).
@@ -54,3 +54,28 @@ Durum: ✅ geliştirildi ve test edildi · 🧪 prototip/deneysel · 📝 öneri
 | Maske yalnızca son karelerde; tarama 15 Hz; AR lite; hareket yokken çizim yok | ✅ | ısınma/pil için; gerçek cihazda ölçülmedi |
 | MediaPipe kullanım telemetrisinin kapatılması | ✅ | CSP zaten engelliyordu |
 | WebGPU ile çizim | 📝 | Safari desteği ve ölçüm sonrası |
+
+## v0.6 — Kişisel asistan, antrenman ve aktivite fikirleri
+
+Değerlendirme: Yarar · Uygulanabilirlik · Gerekli donanım · Doğruluk · Maliyet · Gizlilik/güvenlik riski.
+
+| # | Fikir | Yarar | Uygulanabilirlik | Donanım | Doğruluk | Maliyet | Gizlilik/güvenlik riski | Durum |
+|---|---|---|---|---|---|---|---|---|
+| 1 | **Anahtarsız cihaz içi demo asistan** (sunucu yoksa aynı güvenlik sınıflaması + kural tabanlı yanıt) | Çevrimdışı ve ücretsiz çalışır | yüksek | yok | kural tabanlı, sınırlı | 0 | yok (veri çıkmaz) | ✅ |
+| 2 | **Paylaşım önizlemesi**: gönderilecek metnin aynısı + her yanıtta "paylaşılan: …" etiketi | Bilinçli rıza | yüksek | yok | — | 0 | riski azaltır | ✅ |
+| 3 | **Ağrı/baş dönmesi geri bildirimine göre yük kilidi** (ağrıda artış yok, bölge plandan çıkar, göğüs ağrısında 112) | Güvenlik | yüksek | yok | kural; klinik doğrulama yok | 0 | düşük | ✅ |
+| 4 | **Kamera koçu güvenilirlik kapısı**: görünürlük < %70, < 2 tekrar veya dağınık açıda açı/tempo yorumu gizlenir | Yanlış yönlendirmeyi önler | yüksek | kamera | sentetik ölçüldü | düşük | görüntü cihazda | ✅ |
+| 5 | **Koç ROM eğilimi MDC95 ile**: değişim yalnızca en küçük saptanabilir değişimi aşarsa "olası" | Sahte iyileşme yok | yüksek | kamera | belirsizlik ölçümden | 0 | düşük | ✅ |
+| 6 | **Adım ortalamalarında dalgalanma payı** (iki dönem ortalaması farkı ±1,96·SE) | Günlük gürültüyü "artış" saymaz | yüksek | yok | istatistik | 0 | yok | ✅ |
+| 7 | **Uyarlanır adım hedefi** (son 14 günün ortancası +%10, 3.000–12.000) | Gerçekçi hedef | yüksek | yok | kanıtla uyumlu kademeli artış; kişiye özel doğrulama yok | 0 | yok | ✅ |
+| 8 | **Ön plan yürüyüş sayacı** (DeviceMotion, uygulama açıkken) | HealthKit yokken gerçek ölçüm | orta | ivmeölçer | yalnızca sentetik; gerçek yürüyüşte bilinmiyor | düşük (ekran açık → pil) | düşük | 🧪 |
+| 9 | **Sessiz saat + günlük üst sınır + genel bildirim metni** | Bildirim yorgunluğu ve kilit ekranı gizliliği | yüksek | yok | — | 0 | riski azaltır | ✅ |
+| 10 | **Sesli tekrar sayımı** (Türkçe, cihaz üzerinde) | Telefona bakmadan antrenman | yüksek | hoparlör | sayım koça bağlı | 0 | yok | ✅ |
+| 11 | **Yerel HTTPS (`--cert/--key`)** ile kendi telefonda test | Gerçek cihaz testi yayın olmadan | yüksek | Wi-Fi | — | 0 | düşük (yalnızca LAN) | ✅ |
+| 12 | Web Push sunucusu (uygulama kapalıyken hatırlatma) | Gerçek hatırlatma | orta | sunucu | — | barındırma | push servisine meta veri gider | 📝 onay gerekir |
+| 13 | Yerel kabuk (Capacitor) + HealthKit/Health Connect | Otomatik adım | orta | telefon | işletim sistemi verisi | geliştirici hesapları (ücretli) | sağlık verisi izinleri, mağaza incelemesi | 📝 onay gerekir |
+| 14 | Kamerayla **tempo metronomu** (ör. 2 sn iniş için sesli "in… kalk") | Kontrollü hareket | yüksek | kamera/hoparlör | koç tempo ölçümüne bağlı | düşük | yok | 📝 |
+| 15 | Gerçek AI ile **haftalık değerlendirme** (yalnızca seçili özetler) | Kişisel yorum | yüksek (altyapı hazır) | yok | model yanıtı denetlenmeli | ≈ $0,0025/mesaj | yurt dışı aktarım (KVKK m.9) | 📝 onay gerekir |
+| 16 | Antrenman sırasında **kalp hızı tahmini (kamera rPPG)** | — | düşük | kamera | hareket halinde güvenilmez | — | sağlık iddiası riski | ⛔ |
+| 17 | Kilo/yağ oranı "fotoğraftan tahmin" | — | düşük | kamera | doğrulanamaz | — | yanlış yönlendirme | ⛔ (CLAUDE.md: iç yağ gösterilmez) |
+| 18 | Takviye/beslenme planı önerisi | — | — | — | kanıt ve kişiye özgü değerlendirme gerekir | — | sağlık riski | ⛔ (uzmana yönlendirme) |

@@ -14,7 +14,7 @@ import { bodyMeasures } from '../analysis/silhouette.js';
 import { ATLAS_HEIGHT_CM } from '../analysis/atlas-silhouette.js';
 import { median } from '../analysis/geometry.js';
 import { TOPICS } from '../anatomy/posture-info.js';
-import { createStore } from './store.js';
+import { getStore } from './store.js';
 import { Voice } from './voice.js';
 import { Tilt } from './tilt.js';
 import { renderReport } from './report.js';
@@ -46,7 +46,7 @@ const ATLAS_SEG = (j) => {
 };
 
 export async function createScanScreen() {
-  const store = createStore();
+  const store = getStore();
   const voice = new Voice({ enabled: store.state.settings.voice !== false });
   const tilt = new Tilt();
   const page = $('scan-page');

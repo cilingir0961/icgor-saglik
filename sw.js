@@ -1,7 +1,7 @@
 // Çevrimdışı önbellek (PWA). Yalnızca aynı kökenli dosyalar; ağa veri gönderilmez.
 // Modeller ve kütüphaneler sürüm adıyla değişmez kabul edilir → önce önbellek.
 // HTML/JS/CSS → önce ağ (güncellemeler hemen gelsin), ağ yoksa önbellek.
-const VERSION = 'icgor-v0.4.0';
+const VERSION = 'icgor-v0.6.0';
 const SHELL = ['./', 'index.html', 'src/ui/styles.css', 'icon.svg', 'manifest.webmanifest', 'assets/anatomy/manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -18,6 +18,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (url.pathname.includes('/api/')) return; // API yanıtları önbelleğe alınmaz
   const immutable = /\/(vendor|icons)\//.test(url.pathname) || /\.(glb|task|wasm)$/.test(url.pathname);
   e.respondWith(immutable ? cacheFirst(req) : networkFirst(req));
 });
@@ -41,3 +42,13 @@ async function networkFirst(req) {
     throw err;
   }
 }
+
+// Hatırlatmaya dokunulunca uygulamayı aç (bildirimler yalnızca uygulama içinden, izinle gösterilir)
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url ?? './', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const c = list.find((x) => x.url.startsWith(self.registration.scope));
+    return c ? c.focus().then(() => c.navigate?.(url)) : self.clients.openWindow(url);
+  }));
+});

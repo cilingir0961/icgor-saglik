@@ -1,4 +1,4 @@
-# Mimari ve Teknik Kararlar (v0.5)
+# Mimari ve Teknik Kararlar (v0.6)
 
 ## Temel ilke: üç veri sınıfı, hiç karıştırılmaz
 
@@ -33,6 +33,16 @@ src/analysis/              Ölçüm (saf): geometry, quality (kalite kapısı), 
                            movement (hareket testleri), compare (30/60/90, MDC), proportions, silhouette,
                            atlas-silhouette (üretilir)
 src/scan/                  Tarama ekranı: scan-screen (akış), report, store (yerel, rızalı), voice, tilt, dom
+server/                    Yerel sunucu (v0.6): app.mjs statik + /api; ai/ config, limits (hız/kota/bütçe),
+                           safety (acil/kriz/teşhis/ilaç), prompt, openai (Responses API), mock (demo), chat
+src/today/                 Bugün ekranı
+src/fitness/               exercises (38 egzersiz), planner (ön değerlendirme, plan, geri bildirim güvenliği; saf),
+                           coach (çevrimiçi tekrar/açı/tempo; saf), coach-ui (kamera katmanı), trainer-screen
+src/assistant/             context (paylaşım özeti + önizleme; saf), assistant-screen
+src/activity/              steps (uyarlanır hedef; saf), pedometer (ivmeölçer; saf), sources (kaynak durumu), activity-screen
+src/notify/                schedule (saf), runtime (uygulama açıkken zamanlayıcı), notify-screen
+src/progress/              metrics (dönem karşılaştırma, MDC; saf), progress-screen
+src/data/                  Verilerim ekranı
 src/anatomy/posture-info.js Gözlem → anatomi vurgusu ve genel biyomekanik metinleri (teşhis dili yok)
 src/imaging/               Görüntüleme kaynak mimarisi + DICOM ekranı
 src/dicom/                 Bağımsız DICOM ayrıştırıcı, hacim/MPR/MIP, sentetik fantom
@@ -181,9 +191,30 @@ Bilek noktası hatası omuz genişliğinin %0,3–2,7'si; omuz açısı hatası 
 ### v0.5 ölçüm doğrulaması
 Ayrıntılı tablo ve gerçek kişi protokolü: [`VALIDATION.md`](VALIDATION.md). Kıyas çıktıları: `docs/bench/*.json`.
 
+### v0.6 kararları
+
+- **AI anahtarı yalnızca sunucuda.** İstemci `fetch('api/chat')` ile aynı kökene konuşur; CSP değişmedi. Ücretli
+  çağrı üç ortam değişkeni birlikte verilmedikçe kapalı; hata/bütçe dolumunda demo yanıta düşülür (docs/AI.md).
+- **Acil durumda model çağrılmaz:** kural tabanlı sınıflama sabit 112 yanıtı döndürür (gecikme ve model
+  hatası riski yok).
+- **Demo sağlayıcı = kişisel planlayıcı.** Program sorularına gerçek `buildSession/buildPlan` çıktısıyla yanıt
+  verilir; sunucu yokken aynı modüller cihazda çalışır.
+- **Paylaşım varsayılan kapalı**, kategori bazında açılır, önizleme gönderilen metinle aynı biçimdedir.
+- **Antrenman güvenliği kural tabanlıdır** (PAR-Q benzeri 7 soru, ağrıda yük artmaz, baş dönmesi/nefes darlığında
+  plan duraklar). Klinik doğrulaması yoktur; fizyoterapi reçetesi değildir.
+- **Kamera koçu** hareket testleriyle aynı ölçüm kurallarını kullanır (görünürlük ≥ 0,6, kısalma kapısı, uSys 6°);
+  güvenilirlik kapısı geçilmezse yalnızca yaklaşık tekrar sayısı gösterilir. Yandan görünüşte sağ–sol
+  karşılaştırması yapılmaz (uzak taraf gizli).
+- **Adım kaynakları bağdaştırıcı listesi**; HealthKit/Health Connect web'den erişilemez → "kullanılamaz".
+- **Hatırlatmalar yalnızca uygulama açıkken.** Web Push sunucusu yok; ekranda açıkça yazılır.
+- **Gelişimde "belirsiz" durumu:** adımda ±1,96·SE, koçta MDC95 içinde kalan fark iyileşme sayılmaz.
+- `.warnline` görüntüleme ekranına özgü mutlak konumdan arındırıldı (`#dicom-warnings`), genel uyarı sınıfı oldu.
+
 ## Yol haritası
 
-1. Gerçek cihaz testleri (iPhone Safari, Android Chrome) — HTTPS önizleme gerekir (kullanıcı onayıyla).
+1. Gerçek cihaz testleri (iPhone Safari, Android Chrome) — yerel ağ HTTPS hazır (`--cert/--key`, docs/DEVICE-TEST.md).
+1b. Gerçek AI etkinleştirme (onayla): resmi fiyat doğrulaması, KVKK aydınlatma/yurt dışı aktarım rızası.
+1c. Uygulama kapalıyken hatırlatma (Web Push sunucusu) ve HealthKit/Health Connect için yerel kabuk (onayla).
 1a. Gerçek gönüllü doğrulaması (etik kurul + açık rıza; `scripts/eval-recording.mjs` hazır).
 2. Deri ağının iskelete bağlanması (skinning, ağırlık boyama) — hareket sırasında deri ve omuz kasları.
 3. Omuz noktası kalibrasyonu — açık lisanslı, yer gerçekli poz veri kümesiyle (insan deneyi değil).

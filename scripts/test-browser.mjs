@@ -484,6 +484,241 @@ const scanMovement = async (page, r) => {
   await shot(page, r, 'hareket-rapor', { visual: false });
 };
 
+// ---------------- v0.6: kişisel asistan ekranları ----------------
+
+const today = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/bugun`);
+  await page.eval(`localStorage.removeItem('${STORE_KEY}')`);
+  await page.goto(`${base}/index.html?nosw&t=1#/bugun`);
+  await page.waitFor("document.getElementById('today-workout') !== null", 30000);
+  for (const id of ['today-workout', 'today-steps', 'today-habits', 'today-ai']) if (!(await page.eval(`!!document.getElementById('${id}')`))) r.problems.push(`${id} yok`);
+  if (!/5\.000/.test(await page.eval("document.getElementById('today-steps').textContent"))) r.problems.push('veri yokken ılımlı başlangıç hedefi (5.000) gösterilmedi');
+  await page.eval("document.getElementById('btn-steps-500').click()");
+  await sleep(200);
+  if (!/500/.test(await page.eval("document.getElementById('today-steps').textContent"))) r.problems.push('+500 adım eklenmedi');
+  await page.eval(`localStorage.removeItem('${STORE_KEY}')`); // görsel karşılaştırma için sabit durum
+  await page.goto(`${base}/index.html?nosw&t=2#/bugun`);
+  await page.waitFor("document.getElementById('today-workout') !== null", 30000);
+  await page.eval("document.querySelector('#today-page h2').textContent = 'Bugün'"); // tarih her gün değişir
+  await sleep(300);
+  await noOverflow(page, r);
+  await shot(page, r, 'bugun');
+};
+
+const trainerFlow = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/antrenman`);
+  await page.eval(`localStorage.removeItem('${STORE_KEY}')`);
+  await page.goto(`${base}/index.html?nosw&t=1#/antrenman`);
+  await page.waitFor("document.body.dataset.trainerState==='consent'", 30000);
+  await page.eval("(()=>{document.getElementById('ac-understand').checked=true;document.getElementById('ac-store').checked=true;document.getElementById('btn-app-consent').click()})()");
+  await page.waitFor("document.body.dataset.trainerState==='onboarding'");
+  // Yanıtsız sağlık sorularıyla plan oluşturulamaz
+  await page.eval("document.getElementById('btn-plan-create').click()");
+  if (await page.eval('document.getElementById("tr-err").hidden')) r.problems.push('yanıtsız ön sorularla plan oluşturuldu');
+  await page.eval(`(()=>{const q=(s)=>document.querySelector(s);q('#tr-age').value='35';q('#tr-height').value='175';q('#tr-weight').value='90';
+    q('[data-group="Süre"] [data-value="20"]').click();q('[data-group="Gün"] [data-value="3"]').click();
+    for(const i of document.querySelectorAll('input[value="hayir"]'))i.click();q('#btn-plan-create').click()})()`);
+  await page.waitFor("document.body.dataset.trainerState==='overview'");
+  const plan = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).trainer.plan`);
+  r.metrics.plan = { sessions: plan.sessions.length, minutes: plan.sessions.map((x) => x.estMinutes) };
+  if (plan.sessions.length !== 3) r.problems.push(`haftada 3 gün yerine ${plan.sessions.length} oturum`);
+  if (plan.sessions.some((x) => x.estMinutes > 21)) r.problems.push('oturum süresi bütçeyi aştı');
+  await shot(page, r, 'plan', { visual: false });
+  await page.goto(`${base}/index.html?nosw&t=1#/antrenman?oturum=0`);
+  await page.waitFor("document.body.dataset.trainerState==='session'");
+  const first = await page.eval("document.querySelectorAll('[data-ex]')[1].dataset.ex");
+  await page.eval("document.querySelectorAll('[data-ex]')[0].querySelector('[data-act=done]').click()");
+  await page.eval("document.querySelectorAll('[data-ex]')[1].querySelector('[data-act=replace]').click()");
+  await sleep(200);
+  const after = await page.eval("document.querySelectorAll('[data-ex]')[1].dataset.ex");
+  if (after === first) r.problems.push('"Değiştir" egzersizi değiştirmedi');
+  if (!(await page.eval("document.querySelectorAll('[data-ex]')[0].querySelector('[data-act=done]').getAttribute('aria-pressed')==='true'"))) r.problems.push('tamamlandı işaretlenmedi');
+  await page.eval("for(const el of document.querySelectorAll('[data-w]')) el.style.width = el.dataset.w + '%'");
+  await noOverflow(page, r);
+  await shot(page, r, 'oturum', { visual: false });
+  // Geri bildirim: diz ağrısı → yük artmaz, diz zorlayan hareketler plandan çıkar
+  await page.eval("document.getElementById('btn-session-finish').click()");
+  await page.waitFor("document.body.dataset.trainerState==='feedback'");
+  await page.eval("(()=>{document.querySelector('[data-group=his] [data-value=kolay]').click();document.querySelector('[data-group=agri] [data-value=diz]').click();document.getElementById('btn-feedback-save').click()})()");
+  await page.waitFor("document.body.dataset.trainerState==='result'");
+  const st = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}'))`);
+  r.metrics.afterPain = { limitations: st.profile.limitations, progress: st.trainer.progress };
+  if (!st.profile.limitations.includes('diz')) r.problems.push('ağrı bölgesi kısıtlara eklenmedi');
+  if (Object.values(st.trainer.progress).some((v) => (v.step ?? v) > 0)) r.problems.push('ağrı bildirilmesine rağmen yük artırıldı');
+  // Göğüs ağrısı → acil yönlendirme (112)
+  await page.goto(`${base}/index.html?nosw&t=1#/antrenman?oturum=1`);
+  await page.waitFor("document.body.dataset.trainerState==='session'");
+  await page.eval("document.getElementById('btn-session-finish').click()");
+  await page.waitFor("document.body.dataset.trainerState==='feedback'");
+  await page.eval("(()=>{document.getElementById('fb-chest').checked=true;document.getElementById('btn-feedback-save').click()})()");
+  await page.waitFor("document.body.dataset.trainerState==='result'");
+  if (!(await page.eval("!!document.querySelector('#trainer-result a[href=\"tel:112\"]')"))) r.problems.push('göğüs ağrısında 112 yönlendirmesi yok');
+  await shot(page, r, 'acil', { visual: false });
+};
+
+const assistantDemo = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/asistan`);
+  await seed(page, baseState({ activity: { goalMode: 'auto', goal: null, days: {}, habits: {} }, chat: { messages: [], share: {}, keepHistory: true } }));
+  await page.goto(`${base}/index.html?nosw&t=1#/asistan`);
+  await page.waitFor("document.getElementById('ai-badge') !== null", 30000);
+  const badge = await page.eval("document.getElementById('ai-badge').textContent");
+  if (!/Demo/.test(badge)) r.problems.push(`anahtarsız sunucuda demo rozeti yok: ${badge}`);
+  if (!/Hiçbir kişisel bilgi/.test(await page.eval("document.getElementById('share-preview').textContent"))) r.problems.push('varsayılan paylaşım kapalı değil');
+  const ask = async (q) => {
+    const n = await page.eval("document.querySelectorAll('.msg.assistant').length");
+    await page.eval(`(()=>{const i=document.getElementById('chat-input');i.value=${JSON.stringify(q)};document.getElementById('btn-chat-send').click()})()`);
+    await page.waitFor(`document.querySelectorAll('.msg.assistant').length > ${n}`, 15000);
+    return page.eval("(()=>{const m=[...document.querySelectorAll('.msg.assistant')].at(-1);return {text:m.textContent, provider:m.dataset.provider}})()");
+  };
+  const a1 = await ask('Evde ekipmansız 20 dakikalık program hazırla');
+  r.metrics.a1 = { provider: a1.provider, len: a1.text.length };
+  if (a1.provider !== 'mock' || !/dk|dakika/.test(a1.text)) r.problems.push(`program yanıtı beklenmedik: ${a1.provider}`);
+  if (await page.eval('window.__icgorAssistant.sent.at(-1).context') !== null) r.problems.push('izin verilmeden bağlam gönderildi');
+  // Profil paylaşımı aç → önizleme ve gönderilen bağlam aynı kategoriyi içerir
+  await page.eval("document.getElementById('share-profile').click()");
+  await sleep(150);
+  if (!/Profil: 40 yaş, 172 cm, 70 kg/.test(await page.eval("document.getElementById('share-preview').textContent"))) r.problems.push('profil önizlemesi yanlış');
+  await ask('Nereden başlamalıyım?');
+  const ctx = await page.eval('window.__icgorAssistant.sent.at(-1).context');
+  if (!ctx?.profile || ctx.posture || ctx.activity) r.problems.push(`gönderilen bağlam seçimle uyuşmuyor: ${JSON.stringify(ctx)}`);
+  const a3 = await ask('Göğsümde ağrı var ve nefes alamıyorum');
+  if (a3.provider !== 'guvenlik' || !/112/.test(a3.text)) r.problems.push('acil mesajda 112 güvenlik yanıtı yok');
+  await noOverflow(page, r);
+  await shot(page, r, 'asistan', { visual: false });
+  // Geçmişi sakla kapalı → depoya mesaj yazılmaz
+  await page.eval("document.getElementById('chat-keep').click()");
+  await ask('Uyku düzenim için ne önerirsin?');
+  const stored = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).chat.messages.length`);
+  if (stored !== 0) r.problems.push(`geçmiş saklama kapalıyken ${stored} mesaj depoda`);
+};
+
+const assistantOffline = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/bugun`);
+  await page.waitFor("document.getElementById('today-workout') !== null", 30000);
+  // Sunucu yok (statik barındırma/çevrimdışı) benzetimi: tüm ağ istekleri başarısız
+  await page.eval("window.fetch = () => Promise.reject(new TypeError('ağ yok'))");
+  await page.eval("location.hash = '#/asistan?q=' + encodeURIComponent('Bugün 4000 adım attım, hedefimi nasıl artırabilirim?')");
+  await page.waitFor("document.querySelectorAll('.msg.assistant').length > 0", 20000);
+  const m = await page.eval("(()=>{const m=document.querySelector('.msg.assistant');return {text:m.textContent, provider:m.dataset.provider, badge:document.getElementById('ai-badge').textContent}})()");
+  r.metrics.offline = { provider: m.provider, badge: m.badge };
+  if (m.provider !== 'cihaz' || !/cihaz içi/.test(m.badge) || !/adım/.test(m.text)) r.problems.push(`çevrimdışı demo çalışmadı: ${JSON.stringify(m).slice(0, 200)}`);
+};
+
+const activityScreen = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/aktivite`);
+  await seed(page, baseState());
+  await page.goto(`${base}/index.html?nosw&t=1#/aktivite`);
+  await page.waitFor("document.getElementById('step-chart') !== null", 30000);
+  await page.eval("document.getElementById('btn-demo-add').click()");
+  await sleep(200);
+  const s = await page.eval("({banner: !!document.getElementById('demo-banner'), bars: document.querySelectorAll('#step-chart .bar.demo').length, hk: document.querySelector('[data-source=healthkit]').textContent, basis: document.getElementById('goal-basis').textContent})");
+  r.metrics.activity = s;
+  if (!s.banner || s.bars < 5) r.problems.push('demo veri etiketlenmedi');
+  if (!/kullanılamaz/.test(s.hk)) r.problems.push('HealthKit kullanılamaz olarak gösterilmedi');
+  if (!/ortanca/.test(s.basis)) r.problems.push('uyarlanır hedef gerekçesi yok');
+  await page.eval("(()=>{document.getElementById('steps-input').value='6400';document.getElementById('btn-steps-save').click()})()");
+  await sleep(150);
+  if (!/6\.400/.test(await page.eval("document.getElementById('steps-today').textContent"))) r.problems.push('elle adım girişi kaydedilmedi');
+  await page.eval("document.getElementById('btn-demo-remove').click()");
+  await sleep(150);
+  const left = await page.eval(`Object.values(JSON.parse(localStorage.getItem('${STORE_KEY}')).activity.days).map(d=>d.source)`);
+  if (left.includes('demo') || !left.includes('manuel')) r.problems.push(`demo kaldırma hatalı: ${left}`);
+  await noOverflow(page, r);
+  await shot(page, r, 'aktivite', { visual: false });
+};
+
+const notifyFlow = async (page, r) => {
+  await page.goto(`${base}/index.html#/bildirimler`); // SW açık (bildirim SW üzerinden gösterilir)
+  await seed(page, baseState());
+  await page.send('Browser.grantPermissions', { permissions: ['notifications'], origin: base }).catch((e) => r.problems.push(`izin verilemedi: ${e.message}`));
+  await page.goto(`${base}/index.html?t=1#/bildirimler`);
+  await page.waitFor("document.getElementById('notify-permission') !== null", 30000);
+  const before = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).notify`);
+  if (before?.enabled) r.problems.push('kullanıcı açmadan hatırlatmalar açık');
+  const perm = await page.eval('Notification.permission');
+  r.metrics.permission = perm;
+  if (perm === 'granted') {
+    await page.eval("document.getElementById('notify-enabled').click()");
+    await sleep(200);
+    await page.eval("document.getElementById('btn-notify-test').click()");
+    await page.waitFor("document.getElementById('notify-test-res').textContent.length > 0", 10000);
+    r.metrics.testResult = await page.eval("document.getElementById('notify-test-res').textContent");
+    if (!/gönderildi/.test(r.metrics.testResult)) r.problems.push(`deneme bildirimi gösterilemedi: ${r.metrics.testResult}`);
+    r.metrics.next = await page.eval("document.getElementById('notify-next')?.textContent ?? null");
+    if (!r.metrics.next) r.problems.push('sıradaki hatırlatma gösterilmedi');
+    await page.eval("document.getElementById('btn-notify-off').click()");
+    await sleep(150);
+    if (await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).notify.enabled`)) r.problems.push('"Tümünü kapat" çalışmadı');
+  }
+  await noOverflow(page, r);
+  await shot(page, r, 'bildirim', { visual: false });
+};
+
+const notifyDenied = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/bildirimler`);
+  await page.send('Browser.setPermission', { permission: { name: 'notifications' }, setting: 'denied', origin: base }).catch(() => {});
+  await page.goto(`${base}/index.html?nosw&t=1#/bildirimler`);
+  await page.waitFor("document.getElementById('notify-perm') !== null", 30000);
+  const t = await page.eval("({perm: Notification.permission, text: document.getElementById('notify-perm').textContent, disabled: document.getElementById('notify-enabled').disabled})");
+  r.metrics.denied = t;
+  if (t.perm === 'denied' && (!/reddedilmiş/.test(t.text) || !t.disabled)) r.problems.push('izin reddinde hatırlatma açılabiliyor');
+};
+
+const progressData = async (page, r) => {
+  const now = Date.now(), D = 86400000;
+  const key = (d) => { const x = new Date(now - d * D); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  const days = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [key(i), { steps: 6000 + ((i * 37) % 11) * 150, source: 'manuel' }]));
+  await page.goto(`${base}/index.html?nosw#/gelisim`);
+  await seed(page, baseState({
+    activity: { goalMode: 'auto', goal: null, days, habits: {} },
+    trainer: { plan: null, progress: {}, paused: false, history: [{ date: new Date(now - D).toISOString(), done: 5, total: 6, feedback: { feeling: 'uygun', pain: [] } }],
+      coachLog: [{ date: '2026-09-01', kind: 'squat', tr: 'Squat', reliable: true, extreme: { value: 100, u: 6.5 } }, { date: '2026-10-01', kind: 'squat', tr: 'Squat', reliable: true, extreme: { value: 94, u: 6.5 } }] },
+    chat: { messages: [{ role: 'user', content: 'x' }], share: { profile: true }, keepHistory: true },
+  }));
+  await page.goto(`${base}/index.html?nosw&t=1#/gelisim`);
+  await page.waitFor("document.getElementById('pg-steps') !== null", 30000);
+  const p = await page.eval("({steps:[...document.querySelectorAll('[data-period]')].map(e=>e.dataset.status), coach: document.querySelector('#pg-coach [data-status]')?.dataset.status})");
+  r.metrics.progress = p;
+  if (p.steps[0] !== 'belirsiz') r.problems.push(`sabit adım düzeyi "belirsiz" değil: ${p.steps}`);
+  if (p.coach !== 'belirsiz') r.problems.push('MDC içindeki koç farkı iyileşme gibi gösterildi');
+  await noOverflow(page, r);
+  await shot(page, r, 'gelisim', { visual: false });
+  await page.goto(`${base}/index.html?nosw&t=1#/verilerim`);
+  await page.waitFor("document.getElementById('data-summary') !== null", 30000);
+  await page.eval("window.confirm = () => true; document.getElementById('btn-ai-share-off').click()");
+  await sleep(150);
+  await page.eval("document.getElementById('btn-del-chat').click()");
+  await sleep(150);
+  const st = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).chat`);
+  if (Object.values(st.share).some(Boolean) || st.messages.length) r.problems.push('AI paylaşımı/sohbet silme çalışmadı');
+  await noOverflow(page, r);
+  await shot(page, r, 'verilerim', { visual: false });
+};
+
+const coachCamera = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/antrenman`);
+  await page.eval(`localStorage.removeItem('${STORE_KEY}')`);
+  await page.waitFor("document.body.dataset.screen==='trainer'", 30000);
+  await page.eval(`import('./src/fitness/coach-ui.js').then(m => m.openCoach({ exercise: { tr: 'Kol kaldırma', camera: 'arm-raise', dose: { reps: 3 } }, onClose: (x) => { window.__coachResult = x; } }))`);
+  await page.waitFor("document.getElementById('btn-coach-start') !== null");
+  await page.eval("document.getElementById('btn-coach-start').click()");
+  await page.waitFor("window.__icgorCoach.state==='running'", 90000);
+  await page.waitFor('window.__icgorCoach.reps >= 3', 120000).catch(() => r.problems.push(`3 tekrar sayılmadı (sayılan ${'?'})`));
+  r.metrics.liveReps = await page.eval('window.__icgorCoach.reps');
+  await shot(page, r, 'koc-canli', { visual: false });
+  await page.eval("document.getElementById('btn-coach-finish').click()");
+  await page.waitFor("window.__icgorCoach.state==='summary'");
+  const s = await page.eval('window.__icgorCoach.summary');
+  r.metrics.summary = { reps: s.reps, reliable: s.reliable, reasons: s.reasons, coverage: s.coverage, obs: s.observations };
+  if (s.reliable && !s.observations.length) r.problems.push('güvenilir ölçümde gözlem yok');
+  if (!s.reliable && s.observations.length) r.problems.push('güvenilmez ölçümde açı/tempo gözlemi gösterildi');
+  if (s.observations.some((o) => /yanlış|hatalı|düzeltin/i.test(o))) r.problems.push('koç düzeltme/hüküm cümlesi kurdu');
+  await shot(page, r, 'koc-ozet', { visual: false });
+  await page.eval("document.getElementById('btn-coach-save').click()");
+  if (!(await page.eval('window.__coachResult?.reps >= 1'))) r.problems.push('sonuç geri dönmedi');
+  if (await page.eval("!!document.getElementById('coach-layer')")) r.problems.push('katman kapanmadı');
+};
+
 // ---------------- Koşucu ----------------
 
 async function main() {
@@ -508,7 +743,16 @@ async function main() {
       await scenario('anatomi-4d', dev, anatomy4d, browser);
       await scenario('goruntu-fantom', dev, imagingPhantom, browser);
       await scenario('kamera-izin-reddi', dev, cameraDenied, browser);
+      await scenario('bugun', dev, today, browser);
     }
+    await scenario('antrenman-akisi', 'iphone', trainerFlow, browser);
+    await scenario('asistan-demo', 'iphone', assistantDemo, browser);
+    await scenario('asistan-demo', 'desktop', assistantDemo, browser);
+    await scenario('asistan-cevrimdisi', 'android', assistantOffline, browser);
+    await scenario('aktivite', 'android', activityScreen, browser);
+    await scenario('bildirim-izin', 'android', notifyFlow, browser);
+    await scenario('bildirim-ret', 'iphone', notifyDenied, browser);
+    await scenario('gelisim-verilerim', 'iphone', progressData, browser);
     await scenario('hakkinda-lisans', 'iphone', aboutDialog, browser);
     await scenario('tarama-karsilastirma', 'iphone', scanCompare, browser);
     await scenario('tarama-guvenlik', 'iphone', scanSafety, browser);
@@ -540,7 +784,7 @@ async function main() {
   }
 
   // Kişisel tarama: dört adımlı sahte video (önden, yandan, arkadan, kollar açık) ve yavaş kol kaldırma
-  for (const [kind, sc, name] of [['tarama', scanFlow, 'tarama-akisi'], ['kol', scanMovement, 'tarama-hareket']]) {
+  for (const [kind, sc, name] of [['tarama', scanFlow, 'tarama-akisi'], ['kol', scanMovement, 'tarama-hareket'], ['koc', coachCamera, 'kamera-kocu']]) {
     if (ONLY && !ONLY.split(',').some((o) => `iphone/${name}`.includes(o))) continue;
     const v = join(CACHE, `scan-${kind}.y4m`);
     if (!existsSync(v)) await makeScanVideo(kind, v);

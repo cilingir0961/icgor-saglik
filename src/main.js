@@ -3,22 +3,34 @@
 
 import { loadManifest } from './three/assets.js';
 
-const ROUTES = { '#/anatomi': 'anatomy', '#/kamera': 'camera', '#/tarama': 'scan', '#/goruntu': 'imaging' };
+const ROUTES = {
+  '#/bugun': 'today', '#/antrenman': 'trainer', '#/asistan': 'assistant', '#/tarama': 'scan', '#/anatomi': 'anatomy',
+  '#/aktivite': 'activity', '#/gelisim': 'progress', '#/bildirimler': 'notify', '#/verilerim': 'data',
+  '#/kamera': 'camera', '#/goruntu': 'imaging',
+};
 const screens = {};
 const loaders = {
   anatomy: () => import('./ui/anatomy-screen.js').then((m) => m.createAnatomyScreen()),
   camera: () => import('./camera/camera-screen.js').then((m) => m.createCameraScreen()),
   scan: () => import('./scan/scan-screen.js').then((m) => m.createScanScreen()),
+  today: () => import('./today/today-screen.js').then((m) => m.createTodayScreen()),
+  trainer: () => import('./fitness/trainer-screen.js').then((m) => m.createTrainerScreen()),
+  assistant: () => import('./assistant/assistant-screen.js').then((m) => m.createAssistantScreen()),
+  activity: () => import('./activity/activity-screen.js').then((m) => m.createActivityScreen()),
+  progress: () => import('./progress/progress-screen.js').then((m) => m.createProgressScreen()),
+  notify: () => import('./notify/notify-screen.js').then((m) => m.createNotifyScreen()),
+  data: () => import('./data/data-screen.js').then((m) => m.createDataScreen()),
   imaging: () => import('./imaging/imaging-screen.js').then((m) => m.createImagingScreen()),
 };
 let current = null;
 
 async function show(name) {
-  if (current === name) return;
+  if (current === name) { (await screens[name])?.activate?.(); return; } // aynı ekran, yeni parametre
   if (current && screens[current]) (await screens[current]).deactivate?.();
   current = name;
   document.body.dataset.screen = name;
-  for (const a of document.querySelectorAll('.tabbar a')) {
+  document.getElementById('more-dialog')?.close();
+  for (const a of document.querySelectorAll('.tabbar a, .more-list a')) {
     if (a.dataset.tab === name) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
@@ -32,7 +44,7 @@ async function show(name) {
 }
 
 function route() {
-  const name = ROUTES[location.hash.split('?')[0]] ?? 'anatomy';
+  const name = ROUTES[location.hash.split('?')[0]] ?? 'today';
   show(name).catch((e) => console.error(e));
 }
 
@@ -48,6 +60,8 @@ document.addEventListener('click', (e) => {
   }
   if (e.target.closest('[data-close-dialog]')) e.target.closest('dialog').close();
 });
+
+document.getElementById('btn-more').addEventListener('click', () => document.getElementById('more-dialog').showModal());
 
 // Hakkında: kaynaklar ve lisanslar manifest'ten (tek doğruluk kaynağı)
 const about = document.getElementById('about-dialog');
@@ -95,6 +109,11 @@ document.getElementById('btn-about').addEventListener('click', async () => {
 
 window.addEventListener('hashchange', route);
 route();
+
+// Hatırlatmalar: kullanıcı açtıysa (ve izin verdiyse) uygulama açıkken zamanlayıcı çalışır
+import('./scan/store.js').then(({ getStore }) => {
+  if (getStore().state.notify?.enabled) return import('./notify/runtime.js').then((m) => m.start());
+}).catch((e) => console.warn('hatırlatma zamanlayıcısı', e));
 
 // PWA: çevrimdışı önbellek (yalnızca güvenli bağlamda; test için ?nosw ile kapatılabilir)
 if ('serviceWorker' in navigator && window.isSecureContext && !location.search.includes('nosw')) {

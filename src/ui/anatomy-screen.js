@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const LAYER_IDS = ['organs', 'skeleton', 'muscles', 'vessels', 'nerves', 'skin'];
 const SWATCH = { skin: 'skin', skeleton: 'bone', muscles: 'muscle', nerves: 'nerve' };
-const MOTION_TR = { 'kol-kaldirma': 'kol hareketi', yurume: 'yürüme' };
+const MOTION_TR = { 'kol-kaldirma': 'kol hareketi', yurume: 'yürüme', squat: 'squat (basitleştirilmiş)' };
 const LABEL_PRIORITY = ['heart', 'lung-right', 'lung-left', 'liver', 'stomach', 'brain', 'kidney-right', 'kidney-left',
   'large-intestine', 'small-intestine', 'spleen', 'bladder', 'pancreas', 'gallbladder', 'airways', 'esophagus', 'diaphragm',
   'mus-chest', 'mus-abdomen', 'mus-shoulder-arm', 'mus-hip-thigh', 'mus-head-neck', 'mus-forearm-hand', 'mus-leg-foot', 'mus-back', 'mus-pelvic',
@@ -367,6 +367,7 @@ export async function createAnatomyScreen() {
   // Tarama raporundan gelen eğitim vurgusu ve dijital ikiz oranları (#/anatomi?ikiz)
   let twinChip = null;
   function clearTwin() {
+    if (twinChip && viewer.anim.motion) viewer.setAnimation({ motion: null });
     viewer.setHighlight(null);
     viewer.setTwin(null);
     twinChip?.remove();
@@ -383,6 +384,8 @@ export async function createAnatomyScreen() {
     if (data.twin) viewer.setTwin(data.twin);
     viewer.resetView();
     viewer.setHighlight(data.ids); // resetView seçimi temizler; vurgu korunur
+    // Egzersizden gelindiyse basitleştirilmiş eklem hareketi (SİMÜLASYON rozetiyle gösterilir)
+    if (data.motion) viewer.setAnimation({ motion: data.motion });
     const chip = document.createElement('div');
     chip.className = 'twin-chip';
     chip.id = 'twin-chip';

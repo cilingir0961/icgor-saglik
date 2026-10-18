@@ -39,15 +39,26 @@
     <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></symbol>
     <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
     <symbol id="i-ruler" viewBox="0 0 24 24"><circle cx="9" cy="4.5" r="2"/><path d="M6 21v-6l-1.5-1V9.5A2.5 2.5 0 0 1 7 7h4a2.5 2.5 0 0 1 2.5 2.5V14L12 15v6"/><path d="M18 3v18M18 6h3M18 10h2M18 14h3M18 18h2"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="2"/><path d="m8 21 3-7 3 3v4M7 11l3-4h4l2 4 3 1M11 14l-1-4"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
   </svg>
 
   <header class="appbar">
     <div class="brand">
       <img src="icon.svg" alt="" width="28" height="28">
-      <div><strong>İçGör</strong><span>Anatomi araştırma prototipi</span></div>
+      <div><strong>İçGör</strong><span>Sağlık, hareket ve anatomi · eğitim amaçlı</span></div>
     </div>
-    <button class="icon-btn" id="btn-about" aria-label="Hakkında, kaynaklar ve lisanslar"><svg><use href="#i-info"/></svg></button>
+    <div class="appbar-actions">
+      <button class="icon-btn" id="btn-more" aria-label="Daha fazla: kamera, tıbbi görüntü, aktivite, gelişim, bildirimler, verilerim" aria-haspopup="dialog"><svg><use href="#i-menu"/></svg></button>
+      <button class="icon-btn" id="btn-about" aria-label="Hakkında, kaynaklar ve lisanslar"><svg><use href="#i-info"/></svg></button>
+    </div>
   </header>
 
   <main class="screens">
@@ -163,6 +174,15 @@
       </div>
     </section>
 
+    <!-- ================= v0.6: BUGÜN, ANTRENMAN, ASİSTAN, AKTİVİTE, GELİŞİM, BİLDİRİM, VERİ ================= -->
+    <section class="screen" id="screen-today" aria-label="Bugün"><div class="scan-page app-page" id="today-page"></div></section>
+    <section class="screen" id="screen-trainer" aria-label="Antrenman"><div class="scan-page app-page" id="trainer-page"></div></section>
+    <section class="screen" id="screen-assistant" aria-label="Yapay zekâ asistanı"><div class="scan-page app-page" id="assistant-page"></div></section>
+    <section class="screen" id="screen-activity" aria-label="Aktivite ve adımlar"><div class="scan-page app-page" id="activity-page"></div></section>
+    <section class="screen" id="screen-progress" aria-label="Gelişim"><div class="scan-page app-page" id="progress-page"></div></section>
+    <section class="screen" id="screen-notify" aria-label="Bildirimler ve hatırlatmalar"><div class="scan-page app-page" id="notify-page"></div></section>
+    <section class="screen" id="screen-data" aria-label="Verilerim ve gizlilik"><div class="scan-page app-page" id="data-page"></div></section>
+
     <!-- ================= KİŞİSEL TARAMA ================= -->
     <section class="screen" id="screen-scan" aria-label="Kişisel duruş ve hareket taraması">
       <div class="scan-page" id="scan-page"></div>
@@ -237,11 +257,24 @@
   </aside>
 
   <nav class="tabbar" aria-label="Ekranlar">
-    <a href="#/anatomi" data-tab="anatomy"><svg><use href="#i-body"/></svg><span>Anatomi</span></a>
-    <a href="#/kamera" data-tab="camera"><svg><use href="#i-camera"/></svg><span>Kamera</span></a>
+    <a href="#/bugun" data-tab="today"><svg><use href="#i-home"/></svg><span>Bugün</span></a>
+    <a href="#/antrenman" data-tab="trainer"><svg><use href="#i-dumbbell"/></svg><span>Antrenman</span></a>
+    <a href="#/asistan" data-tab="assistant"><svg><use href="#i-chat"/></svg><span>Asistan</span></a>
     <a href="#/tarama" data-tab="scan"><svg><use href="#i-ruler"/></svg><span>Tarama</span></a>
-    <a href="#/goruntu" data-tab="imaging"><svg><use href="#i-scan"/></svg><span>Görüntü</span></a>
+    <a href="#/anatomi" data-tab="anatomy"><svg><use href="#i-body"/></svg><span>Anatomi</span></a>
   </nav>
+
+  <dialog id="more-dialog" aria-labelledby="more-title">
+    <div class="dialog-head"><h2 id="more-title">Daha fazla</h2><button class="icon-btn" data-close-dialog aria-label="Kapat"><svg><use href="#i-close"/></svg></button></div>
+    <nav class="more-list" aria-label="Diğer ekranlar">
+      <a href="#/aktivite" data-tab="activity"><svg><use href="#i-walk"/></svg><span>Aktivite ve adımlar</span></a>
+      <a href="#/gelisim" data-tab="progress"><svg><use href="#i-chart"/></svg><span>Gelişim</span></a>
+      <a href="#/bildirimler" data-tab="notify"><svg><use href="#i-bell"/></svg><span>Bildirimler ve hatırlatmalar</span></a>
+      <a href="#/kamera" data-tab="camera"><svg><use href="#i-camera"/></svg><span>Kamera AR (anatomi katmanı)</span></a>
+      <a href="#/goruntu" data-tab="imaging"><svg><use href="#i-scan"/></svg><span>Tıbbi görüntü (DICOM)</span></a>
+      <a href="#/verilerim" data-tab="data"><svg><use href="#i-lock"/></svg><span>Verilerim ve gizlilik</span></a>
+    </nav>
+  </dialog>
 
   <dialog id="about-dialog" aria-labelledby="about-title">
     <div class="dialog-head"><h2 id="about-title">Hakkında</h2><button class="icon-btn" data-close-dialog aria-label="Kapat"><svg><use href="#i-close"/></svg></button></div>

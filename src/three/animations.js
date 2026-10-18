@@ -80,4 +80,17 @@ export const MOTIONS = {
       };
     },
   },
+  squat: {
+    tr: 'Squat / oturup kalkma (basitleştirilmiş)',
+    period: 3,
+    // Basitleştirilmiş: yalnızca kalça ve diz bükülür; gövde eğimi ve ayak–zemin teması modellenmez.
+    pose(t) {
+      const k = 0.5 - 0.5 * Math.cos((t / this.period) * 2 * Math.PI);
+      return {
+        'hip-L': { flex: 85 * deg * k }, 'hip-R': { flex: 85 * deg * k },
+        'knee-L': { flex: 95 * deg * k }, 'knee-R': { flex: 95 * deg * k },
+        'shoulder-L': { flex: 60 * deg * k }, 'shoulder-R': { flex: 60 * deg * k },
+      };
+    },
+  },
 };

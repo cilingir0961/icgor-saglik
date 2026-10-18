@@ -1,6 +1,7 @@
-// Kişisel veri deposu: YALNIZCA bu cihazda (localStorage). Görüntü ve video ASLA saklanmaz; yalnızca sayısal
-// ölçüm sonuçları, profil (boy/kilo/yaş) ve ayarlar. Saklama açık rızaya bağlıdır; rıza yoksa veriler yalnızca
-// oturum belleğinde tutulur ve sayfa kapanınca silinir. Dışa aktarma (JSON) ve tümünü silme her zaman açıktır.
+// Kişisel veri deposu (tüm uygulama tek örnek: getStore()). YALNIZCA bu cihazda (localStorage). Görüntü ve
+// video ASLA saklanmaz; yalnızca sayısal sonuçlar, profil, antrenman/aktivite kayıtları, bildirim ayarları ve
+// (isteğe bağlı) sohbet geçmişi. Saklama açık rızaya bağlıdır; rıza yoksa veriler yalnızca oturum belleğinde
+// tutulur ve sayfa kapanınca silinir. Dışa aktarma (JSON) ve tümünü silme her zaman açıktır.
 
 export const STORE_KEY = 'icgor.kisisel.v1';
 export const CONSENT_VERSION = 1;
@@ -14,7 +15,16 @@ function safeStorage() {
   } catch { return null; }
 }
 
-const empty = () => ({ consent: null, profile: null, scans: [], settings: { voice: true, mode: 'helper' } });
+const empty = () => ({
+  consent: null, profile: null, scans: [], settings: { voice: true, mode: 'helper' },
+  trainer: { plan: null, progress: {}, history: [], paused: false },
+  activity: { goalMode: 'auto', goal: null, days: {}, habits: {} },
+  notify: null,
+  chat: { messages: [], share: {}, keepHistory: true },
+  deviceId: null,
+});
+/** Profil alanları: sayısal olanlar aralık denetiminden geçer, diğerleri olduğu gibi saklanır. */
+const NUMERIC = { heightCm: [100, 230], weightKg: [25, 300], age: [10, 110], daysPerWeek: [1, 6], minutesPerDay: [5, 120] };
 
 export function createStore(storage = safeStorage()) {
   let state = empty();
@@ -43,10 +53,23 @@ export function createStore(storage = safeStorage()) {
     },
     withdrawConsent() { this.clearAll(); },
     setProfile(p) {
-      const n = (x, lo, hi) => (Number.isFinite(+x) && +x >= lo && +x <= hi ? +x : null);
-      state.profile = { heightCm: n(p.heightCm, 100, 230), weightKg: n(p.weightKg, 25, 300), age: n(p.age, 10, 110) };
+      const n = (x, lo, hi) => (x !== '' && x != null && Number.isFinite(+x) && +x >= lo && +x <= hi ? +x : null);
+      const next = { ...(state.profile ?? {}) };
+      for (const [k, v] of Object.entries(p)) next[k] = NUMERIC[k] ? n(v, ...NUMERIC[k]) : v;
+      state.profile = next;
       persist();
       return state.profile;
+    },
+    /** Bir bölümü kısmen günceller (trainer, activity, notify, chat …). */
+    update(section, patch) {
+      state[section] = typeof patch === 'function' ? patch(state[section]) : { ...(state[section] ?? {}), ...patch };
+      persist();
+      return state[section];
+    },
+    /** Kalıcı olmayan rastgele cihaz kimliği (yalnızca AI hız sınırı/kota için; kişisel bilgi içermez). */
+    deviceId() {
+      if (!state.deviceId) { state.deviceId = (globalThis.crypto?.randomUUID?.() ?? `c${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`).replace(/[^a-z0-9-]/gi, ''); persist(); }
+      return state.deviceId;
     },
     setSettings(s) { state.settings = { ...state.settings, ...s }; persist(); },
     addScan(scan) { state.scans.push(scan); state.scans.sort((a, b) => a.date.localeCompare(b.date)); persist(); return scan; },
@@ -65,4 +88,11 @@ export function createStore(storage = safeStorage()) {
       }, null, 2);
     },
   };
+}
+
+let shared = null;
+/** Uygulama genelinde tek depo örneği (ekranlar arası tutarlılık). */
+export function getStore() {
+  shared ??= createStore();
+  return shared;
 }
