@@ -16,7 +16,8 @@ export function createMaterial(cls) {
       color, roughness: def.roughness, metalness: 0,
       clearcoat: cls === 'brain' || cls === 'lung' ? 0.15 : 0.45,
       clearcoatRoughness: 0.35,
-      sheen: 0.25, sheenRoughness: 0.6, sheenColor: color.clone().lerp(new THREE.Color('#ffffff'), 0.4),
+      // Hafif kadife parlaklık; beyaza fazla çekilirse kırmızı dokular pembeleşir.
+      sheen: 0.12, sheenRoughness: 0.7, sheenColor: color.clone().lerp(new THREE.Color('#ffffff'), 0.12),
     });
   }
   // kemik / kıkırdak

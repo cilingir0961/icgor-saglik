@@ -1,41 +1,40 @@
-# icgor-saglik
+# İçGör (icgor-saglik)
 
-Kamera tabanlı **şematik** 3B anatomi görüntüleme prototipi.
+Mobil öncelikli **3B anatomi ve sağlık görüntüleme araştırma prototipi**.
 
-> **Eğitim amaçlıdır, teşhis aracı değildir.** Kamera vücudun yalnızca dış yüzeyini görür.
-> Uygulamanın gösterdiği organlar, kişinin gövde oranlarına hizalanmış genel bir modeldir.
-> Bir kişinin gerçek organ görüntüsü yalnızca uygun tıbbi görüntüleme donanımıyla
-> (BT, MR, ultrason, röntgen vb.) elde edilebilir.
+> **Araştırma ve eğitim prototipidir. Tıbbi cihaz değildir, tanı koymaz.**
+> Kamera vücudun yalnızca dış yüzeyini görür. Gösterilen organlar genel bir referans anatomi modelidir
+> (atlas). Bir kişinin gerçek organ görüntüsü yalnızca uygun tıbbi görüntüleme donanımıyla (BT, MR,
+> ultrason vb.) elde edilebilir.
 
-## Ne yapıyor?
+## Ekranlar
 
-- **Kamera modu:** Telefon veya bilgisayar kamerasının görüntüsü üzerine, omuz ve kalça
-  noktalarına hizalanmış şematik organ modeli çizer. Noktalar şimdilik elle sürüklenir.
-- **3B modu:** Aynı modeli serbestçe döndürüp yakınlaştırma (dokunmatik ve fare).
-- **DICOM modu:** Kendi BT/MR serinizi (sıkıştırılmamış DICOM) açıp aksiyel/koronal/sajital
-  kesitleri ve MIP'i görüntüleme; pencere ön ayarları, dokunarak HU okuma. Gerçek veri olmadan
-  denemek için **Fantom** düğmesi atlastan sentetik bir BT üretir.
-- Görüntü ve dosyalar cihazdan çıkmaz; sunucu, analitik veya dış servis yok. İçerik Güvenlik
-  Politikası (CSP) sayfanın dış adrese bağlanmasını tarayıcı düzeyinde engeller.
+| Ekran | Ne yapar | Veri sınıfı |
+|---|---|---|
+| **Anatomi** | Gerçek anatomik biçimli 3B model: deri, iskelet (6 grup), 17 organ. Döndürme, yakınlaştırma, katman saydamlığı, yapı seçme, tek başına inceleme, eğitim bilgi paneli, kalp atımı **simülasyonu** | Atlas modeli |
+| **Kamera** | MediaPipe vücut takibiyle organ modelini kamera görüntüsüne **yaklaşık** yerleştirir; elle hizalama yedeği, izin reddi ekranı | Kamera takibi + atlas |
+| **Görüntü** | DICOM (BT/MR) kesitleri, MPR, MIP, pencereleme, HU okuma; sentetik fantom | Tıbbi görüntü / sentetik |
+
+Görüntü ve dosyalar cihazdan çıkmaz. İçerik Güvenlik Politikası (CSP) sayfanın dış adreslere
+bağlanmasını engeller. WebGL2 olmayan cihazlar için eski şematik görünüm: `legacy.html`.
 
 ## Çalıştırma
 
-Bağımlılık yok, derleme adımı yok. Node 20+ ve Python 3 yeterli.
-
 ```bash
-npm run serve        # http://localhost:8000 (kamera için localhost veya HTTPS gerekir)
-npm test             # birim testleri (node:test)
-npm run smoke        # headless Chromium ile telefon + masaüstü tarayıcı testi
+npm install                 # yalnızca geliştirme araçları (test/derleme); uygulama vendor/ ile çalışır
+npm run serve               # http://localhost:8000
+npm test                    # birim testleri (node:test)
+npm run test:browser        # Chromium: iPhone/Android/masaüstü profilleri, görsel regresyon, AR doğruluğu
+npm run build:anatomy       # 3B modelleri sabitlenmiş kaynaklardan yeniden üret (≈1 dk, ilk sefer ~150 MB indirir)
+npm run vendor              # three.js / MediaPipe dosyalarını vendor/ altına kopyala
 ```
 
-URL sonuna `#orbit`, `#dicom`, `#dicom-fantom` veya `#camera` (kamerayı hemen aç) eklenebilir.
-Sentetik DICOM dosyaları üretmek için: `node scripts/make-sample-dicom.mjs ornek-dicom`.
+Bağlantılar: `#/anatomi`, `#/kamera`, `#/goruntu`, `#/goruntu?fantom`; kalite: `?lod=high|low`.
 
-## Telefondan ve bilgisayardan geliştirme
+## 3B model kaynakları
 
-- **Telefon:** Claude uygulamasındaki bulut oturumu bu depoyu klonlayıp üzerinde çalışır.
-- **Bilgisayar:** `git clone https://github.com/cilingir0961/icgor-saglik` → `npm run serve`.
-- İki taraf aynı GitHub deposu üzerinden senkron kalır. Telefonda kamerayla denemek için
-  HTTPS gerekir (ör. GitHub Pages) — bkz. `docs/ARCHITECTURE.md` yol haritası.
+- **BodyParts3D 4.3** — BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0
+  International. Bu depodaki türev modeller ihtiyaten **CC BY-SA 4.0** (ayrıntı: `assets/anatomy/LICENSE.md`).
+- **Human Reference Atlas** (CC BY 4.0) — yalnızca derleme sırasında bağımsız konum doğrulaması için; dağıtılmaz.
 
-Mimari ve teknik kararlar: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Mimari, kararlar ve ölçümler: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)

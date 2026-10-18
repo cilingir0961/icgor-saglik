@@ -6,10 +6,12 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
-    "serve": "python3 -m http.server 8000",
-    "smoke": "node scripts/browser-smoke.mjs",
+    "serve": "node scripts/serve.mjs",
+    "smoke": "node scripts/test-browser.mjs",
     "build:anatomy": "node scripts/anatomy/build.mjs",
-    "vendor": "node scripts/vendor.mjs"
+    "vendor": "node scripts/vendor.mjs",
+    "test:browser": "node scripts/test-browser.mjs",
+    "test:visual:update": "node scripts/test-browser.mjs --update-baselines"
   },
   "engines": {
     "node": ">=20"

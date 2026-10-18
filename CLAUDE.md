@@ -8,11 +8,16 @@
   Değişiklikler ve test sonuçları her seferinde raporlanır.
 - Sınırlar (onaysız ASLA): diğer projelere dokunmak; ücretli hizmet/abonelik; gerçek sağlık
   verisini dış servise göndermek; doğrulanmamış cihazı insan üzerinde test etmeye yönelik iş;
-  projeyi teşhis koyan onaylı cihaz gibi sunmak; üretim ortamına yayınlamak; güvenlik
-  ayarlarını zayıflatmak.
-- Tıbbi dürüstlük: Kamera iç organları göremez. Şematik atlası asla kişinin gerçek anatomisi
-  gibi sunma; uyarı metnini kaldırma. Gerçek organ görüntüsü yalnızca tıbbi görüntüleme
-  donanımından (DICOM) gelir.
-- Kod: bağımlılıksız ES modülleri; hesaplama saf fonksiyonlarda (`src/core`, `src/anatomy`,
-  `src/render/scene.js`), DOM yalnızca `src/app.js` ve çizicide.
-- Doğrulama: `npm test` ve `npm run smoke` her değişiklikten sonra geçmeli.
+  projeyi teşhis koyan onaylı cihaz gibi sunmak; üretim ortamına yayınlamak (GitHub Pages dahil);
+  güvenlik ayarlarını zayıflatmak (CSP gevşetmek dahil).
+- Tıbbi dürüstlük: Kamera iç organları göremez. Üç veri sınıfı her ekranda ayrı etiketlenir:
+  atlas modeli (kişiye ait değil), kamera takibi (yaklaşık), tıbbi görüntü (yalnızca cihaz verisi, DICOM).
+  Simülasyonlar (ör. kalp atımı) açıkça "SİMÜLASYON" olarak işaretlenir.
+- Üçüncü taraf varlık: lisansı birincil kaynaktan doğrulanmadan eklenmez; atıf `assets/anatomy/LICENSE.md`
+  ve "Hakkında" ekranında. Modeller `npm run build:anatomy` ile sabitlenmiş kaynaklardan yeniden üretilir.
+- Kod: derleme adımı yok; üçüncü taraf kütüphaneler `npm run vendor` ile `vendor/` altına kopyalanır.
+  Hesaplama saf modüllerde (`src/core`, `src/anatomy`, `src/camera/ar-fit.js`, `src/imaging/sources.js`,
+  `src/three/lod.js`, `src/dicom/*`), DOM/WebGL ekran modüllerinde.
+- Doğrulama: `npm test` (birim) ve `npm run test:browser` (Chromium: 3 cihaz profili, görsel regresyon,
+  sahte kamerayla AR doğruluğu) her değişiklikten sonra geçmeli. Bilinçli görsel değişiklikte
+  `npm run test:visual:update` ile temel görüntüler güncellenir ve nedeni commit mesajına yazılır.

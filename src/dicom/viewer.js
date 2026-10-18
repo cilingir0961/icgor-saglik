@@ -45,6 +45,7 @@ export class DicomViewer {
     this.mip = null;
     this.layout = null; // son çizimde görüntünün ekrandaki yeri
     this.probe = null; // {x, y, value}
+    this.infoTop = 8; // bilgi satırının üst boşluğu (üstte rozet varsa artırılır)
   }
 
   setVolume(vol) {
@@ -128,12 +129,12 @@ export class DicomViewer {
     ctx.font = '12px system-ui, sans-serif';
     ctx.fillStyle = '#e8eef3';
     const sliceInfo = this.plane === 'mip' ? 'MIP (ön-arka)' : `${PLANES[this.plane]} ${this.sliceIndex + 1}/${this.sliceCount}`;
-    ctx.fillText(`${this.vol.modality || '?'} · ${sliceInfo} · P ${Math.round(this.win.center)}/${Math.round(this.win.width)}`, 8, 8);
+    ctx.fillText(`${this.vol.modality || '?'} · ${sliceInfo} · P ${Math.round(this.win.center)}/${Math.round(this.win.width)}`, 8, this.infoTop);
 
     if (this.vol.synthetic) {
       ctx.font = '700 12px system-ui, sans-serif';
       ctx.fillStyle = '#ffb347';
-      ctx.fillText('SENTETİK FANTOM — gerçek hasta verisi değil', 8, 26);
+      ctx.fillText('SENTETİK FANTOM — gerçek hasta verisi değil', 8, this.infoTop + 18);
     }
     if (this.probe) {
       ctx.textBaseline = 'bottom';

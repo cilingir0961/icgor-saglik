@@ -250,7 +250,7 @@ export async function createAnatomyScreen() {
       .sort((a, b) => rank(a.id) - rank(b.id)).slice(0, max)
       .map((a) => ({ ...a, text: organName(a.id) }));
     const placed = layoutLabels(anchors, {
-      width: viewer.width, height: viewer.height, lineHeight: narrow ? 24 : 22, margin: 8, gap: narrow ? 10 : 28,
+      width: viewer.width, height: viewer.height, lineHeight: narrow ? 28 : 27, margin: 8, gap: narrow ? 10 : 28, // etiket kutusu 24 px
       measure: (t) => measureCtx.measureText(t).width + 18,
     });
     for (const l of placed) {
