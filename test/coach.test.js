@@ -92,3 +92,12 @@ test('summarize: tek ölçümde sistematik belirsizlik; her tür tanımlı', () 
   for (const k of Object.keys(COACH_KINDS)) assert.ok(createCoach(k).def.setup);
   assert.throws(() => createCoach('uçmak'));
 });
+
+test('düşük kare hızında (< 8 fps) ölçüm güvenilmez sayılır, gözlem gösterilmez', () => {
+  const c = createCoach('squat');
+  run(c, (t) => legFrame(t < 1 ? 175 : 175 - 90 * Math.sin((((t - 1) % 3) / 3) * Math.PI)), 13, 4);
+  const s = c.summary();
+  assert.equal(s.reliable, false);
+  assert.match(s.reasons.join(' '), /saniyede 4 kare/);
+  assert.deepEqual(s.observations, []);
+});

@@ -14,6 +14,7 @@ export const U_SYS = 6;
 const VIS = 0.6;
 const FORESHORTEN = 0.8;
 const SMOOTH = 5;
+export const MIN_FPS = 8; // daha seyrek örneklemede tepe noktaları kaçar, yumuşatma gecikmesi tempoyu bozar
 
 /**
  * Hareket türleri. signal: kare başına taraf açısı; phase: tekrar eşikleri (histerezis).
@@ -61,7 +62,8 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {
   const sides = Object.fromEntries(SIDES.map(([S]) => [S, {
     raw: [], ref: null, calib: [], phase: 'ready', cur: null, reps: [],
   }]));
-  let frames = 0, usable = 0, lastT = null;
+  let frames = 0, usable = 0, lastT = null, firstT = null;
+  const dts = [];
 
   function sideAngle(lm, s) {
     const keys = K.chain.map((k) => `${s}${k}`);
@@ -106,6 +108,8 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {
      */
     push(lm, t) {
       frames++;
+      if (lastT != null) { dts.push(t - lastT); if (dts.length > 300) dts.shift(); }
+      firstT ??= t;
       lastT = t;
       const angle = {};
       let newRep = null, anyVisible = false;
@@ -159,6 +163,8 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {
       const reps = this.count();
       const counted = per.L.reps >= per.R.reps ? per.L : per.R;
       const reasons = [];
+      const fps = dts.length ? +(1 / median(dts)).toFixed(1) : 0;
+      if (fps < MIN_FPS) reasons.push(`Vücut takibi saniyede ${fps} kare işleyebildi (en az ${MIN_FPS} gerekir); tekrarlar ve açılar kaçabilir.`);
       if (frames < 15) reasons.push('Çok kısa kayıt.');
       if (coverage < 0.7) reasons.push(`Gerekli eklemler karelerin yalnızca %${Math.round(coverage * 100)}'inde net göründü (en az %70 gerekir).`);
       if (reps < 2) reasons.push('Belirsizlik hesabı için en az 2 tekrar gerekir.');
@@ -172,7 +178,7 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {
         asym = { value, u, distinguishable: Math.abs(value) > 2 * u };
       }
       return {
-        kind, tr: K.tr, reps, coverage: +coverage.toFixed(2), durationS: lastT, reliable, reasons,
+        kind, tr: K.tr, reps, coverage: +coverage.toFixed(2), fps, durationS: lastT != null ? +(lastT - firstT).toFixed(1) : 0, reliable, reasons,
         sides: reliable ? per : null, asym,
         observations: reliable ? observations(K, per, asym) : [],
       };
@@ -192,7 +198,7 @@ export function observations(K, per, asym) {
   }
   if (lead.down.value != null && lead.up.value != null) {
     out.push(`Tempo: ${K.dir === 'down' ? 'iniş' : 'kaldırış'} ≈ ${lead.down.value.toFixed(1)} s, ${K.dir === 'down' ? 'kalkış' : 'indiriş'} ≈ ${lead.up.value.toFixed(1)} s (tekrar başına ≈ ${lead.duration.value.toFixed(1)} s).`);
-    if (lead.down.value < 0.8) out.push('İniş bir saniyeden kısa sürdü; programdaki önerilen tempo genellikle 2 saniyelik kontrollü iniştir.');
+    if (lead.down.value < 0.8) out.push(`${K.dir === 'down' ? 'İniş' : 'Kaldırış'} bir saniyeden kısa sürdü; programdaki önerilen tempo genellikle 2 saniyelik kontrollü harekettir.`);
   }
   if (lead.extreme.u != null && lead.reps >= 3) {
     out.push(lead.extreme.u <= 8 ? 'Tekrarlar arası hareket açıklığı ölçüm belirsizliği içinde tutarlı.' : 'Tekrarlar arasında hareket açıklığı değişti; yorgunluk veya ölçüm kaynaklı olabilir.');

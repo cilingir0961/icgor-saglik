@@ -709,7 +709,10 @@ const coachCamera = async (page, r) => {
   await page.eval("document.getElementById('btn-coach-finish').click()");
   await page.waitFor("window.__icgorCoach.state==='summary'");
   const s = await page.eval('window.__icgorCoach.summary');
-  r.metrics.summary = { reps: s.reps, reliable: s.reliable, reasons: s.reasons, coverage: s.coverage, obs: s.observations };
+  r.metrics.summary = { reps: s.reps, reliable: s.reliable, reasons: s.reasons, coverage: s.coverage, fps: s.fps, obs: s.observations };
+  // Sahte video: 2 kol birlikte, tekrar 4 s. Güvenilir sayıldıysa tempo gerçeğe yakın olmalı
+  const lead = s.sides ? (s.sides.L.reps >= s.sides.R.reps ? s.sides.L : s.sides.R) : null;
+  if (s.reliable && Math.abs(lead.duration.value - 4) > 1.5) r.problems.push(`güvenilir denilen ölçümde tekrar süresi ${lead.duration.value} s (gerçek 4 s)`);
   if (s.reliable && !s.observations.length) r.problems.push('güvenilir ölçümde gözlem yok');
   if (!s.reliable && s.observations.length) r.problems.push('güvenilmez ölçümde açı/tempo gözlemi gösterildi');
   if (s.observations.some((o) => /yanlış|hatalı|düzeltin/i.test(o))) r.problems.push('koç düzeltme/hüküm cümlesi kurdu');
