@@ -1,0 +1,750 @@
+{
+  "version": 1,
+  "generated": "2026-10-18",
+  "units": "metre",
+  "axes": "+X hastanın solu, +Y baş, +Z ön (anterior)",
+  "bodyHeight": 1.7194712460041046,
+  "disclaimer": "Genel referans anatomi (atlas) modelidir; herhangi bir kişinin taraması değildir.",
+  "sources": {
+    "bodyparts3d": {
+      "title": "BodyParts3D 4.3",
+      "copyright": "BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International",
+      "licenseNote": "Resmi lisans sayfası (2025-02-27) CC BY 4.0 belirtir; kaynak OBJ yorumları ve ayna depo eski CC BY-SA 2.1 JP der. İhtiyaten bu projedeki türev model dosyaları CC BY-SA 4.0 altında yayınlanır (her iki lisansla uyumlu).",
+      "licenseUrl": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html",
+      "citation": "Mitsuhashi N, et al. BodyParts3D: 3D structure database for anatomical concepts. Nucleic Acids Res. 2009;37:D782–5. doi:10.1093/nar/gkn613",
+      "mirror": "https://github.com/olivercase/body_parts_3d_api",
+      "mirrorDoi": "https://doi.org/10.5281/zenodo.22727172",
+      "commit": "fd527e6f4daf732fd814314d9257df5877b844bc"
+    },
+    "hra": {
+      "title": "Human Reference Atlas — 3D Reference Organ Set, Male (united), v2.0",
+      "copyright": "Human Reference Atlas (HuBMAP), medical illustration: Kristen Browne, Heidi Schlehlein; Visible Human Male data, U.S. National Library of Medicine",
+      "licenseNote": "HRA 3D Reference Object Library: tüm 3B referans nesneleri CC BY 4.0.",
+      "licenseUrl": "https://humanatlas.io/3d-reference-library",
+      "citation": "Börner K, et al. Anatomical structures, cell types and biomarkers of the Human Reference Atlas. Nat Cell Biol. 2021;23:1117–1128. doi:10.1038/s41556-021-00788-6",
+      "repo": "https://github.com/hubmapconsortium/ccf-releases",
+      "commit": "b036a91aaf7234f462b1249d4a5f4fb0e982f412",
+      "path": "v2.0/models/3d-vh-m-united.glb.zip"
+    }
+  },
+  "registration": {
+    "method": "Afin en küçük kareler (12 parametre), yapı ağırlık merkezleri",
+    "landmarks": 31,
+    "rmsMm": 15.77,
+    "maxMm": 39.39,
+    "appliesTo": [
+      "lung-right",
+      "lung-left"
+    ]
+  },
+  "lods": {
+    "high": {
+      "skin": {
+        "path": "high/skin.glb",
+        "bytes": 374208,
+        "tris": 60000
+      },
+      "skeleton": {
+        "path": "high/skeleton.glb",
+        "bytes": 907556,
+        "tris": 138534
+      },
+      "organs": {
+        "path": "high/organs.glb",
+        "bytes": 940344,
+        "tris": 139293
+      }
+    },
+    "low": {
+      "skin": {
+        "path": "low/skin.glb",
+        "bytes": 93272,
+        "tris": 14000
+      },
+      "skeleton": {
+        "path": "low/skeleton.glb",
+        "bytes": 320208,
+        "tris": 46276
+      },
+      "organs": {
+        "path": "low/organs.glb",
+        "bytes": 386408,
+        "tris": 52787
+      }
+    }
+  },
+  "structures": [
+    {
+      "id": "skin",
+      "layer": "skin",
+      "en": "Skin",
+      "fma": "FMA7163",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        0,
+        0.8834,
+        -0.0149
+      ],
+      "min": [
+        -0.3335,
+        0,
+        -0.146
+      ],
+      "max": [
+        0.3335,
+        1.7195,
+        0.146
+      ],
+      "tris": {
+        "high": 60000,
+        "low": 14000
+      },
+      "sourceTris": 203382
+    },
+    {
+      "id": "skull",
+      "layer": "skeleton",
+      "en": "Skull",
+      "fma": "FMA46565",
+      "source": "bodyparts3d",
+      "parts": 23,
+      "centroid": [
+        0,
+        1.6162,
+        -0.0071
+      ],
+      "min": [
+        -0.0755,
+        1.4997,
+        -0.1188
+      ],
+      "max": [
+        0.0755,
+        1.7144,
+        0.0901
+      ],
+      "tris": {
+        "high": 29978,
+        "low": 8980
+      },
+      "sourceTris": 128702
+    },
+    {
+      "id": "spine",
+      "layer": "skeleton",
+      "en": "Vertebral column",
+      "fma": "FMA13478",
+      "source": "bodyparts3d",
+      "parts": 48,
+      "centroid": [
+        0,
+        1.2155,
+        -0.0432
+      ],
+      "min": [
+        -0.0589,
+        0.8609,
+        -0.108
+      ],
+      "max": [
+        0.0588,
+        1.5595,
+        0.0152
+      ],
+      "tris": {
+        "high": 29948,
+        "low": 9972
+      },
+      "sourceTris": 124220
+    },
+    {
+      "id": "ribcage",
+      "layer": "skeleton",
+      "en": "Thoracic cage",
+      "fma": "FMA7480",
+      "source": "bodyparts3d",
+      "parts": 47,
+      "centroid": [
+        0.0002,
+        1.2644,
+        0.0063
+      ],
+      "min": [
+        -0.1364,
+        1.0862,
+        -0.0971
+      ],
+      "max": [
+        0.1364,
+        1.4486,
+        0.1131
+      ],
+      "tris": {
+        "high": 29968,
+        "low": 9974
+      },
+      "sourceTris": 204796
+    },
+    {
+      "id": "pelvis",
+      "layer": "skeleton",
+      "en": "Pelvic girdle (hip bones)",
+      "fma": "FMA16580",
+      "source": "bodyparts3d",
+      "parts": 2,
+      "centroid": [
+        0.0005,
+        0.938,
+        -0.0286
+      ],
+      "min": [
+        -0.1442,
+        0.8301,
+        -0.0996
+      ],
+      "max": [
+        0.1454,
+        1.0362,
+        0.0383
+      ],
+      "tris": {
+        "high": 4706,
+        "low": 3500
+      },
+      "sourceTris": 4706
+    },
+    {
+      "id": "upper-limb-bones",
+      "layer": "skeleton",
+      "en": "Bones of upper limbs and shoulder girdle",
+      "fma": "FMA7183",
+      "source": "bodyparts3d",
+      "parts": 74,
+      "centroid": [
+        0.0082,
+        1.1411,
+        -0.0174
+      ],
+      "min": [
+        -0.3233,
+        0.7311,
+        -0.1059
+      ],
+      "max": [
+        0.3246,
+        1.4336,
+        0.0947
+      ],
+      "tris": {
+        "high": 21968,
+        "low": 7134
+      },
+      "sourceTris": 90126
+    },
+    {
+      "id": "lower-limb-bones",
+      "layer": "skeleton",
+      "en": "Bones of lower limbs",
+      "fma": "FMA7184",
+      "source": "bodyparts3d",
+      "parts": 71,
+      "centroid": [
+        0.0016,
+        0.3494,
+        -0.0064
+      ],
+      "min": [
+        -0.1687,
+        0.0076,
+        -0.0768
+      ],
+      "max": [
+        0.17,
+        0.9124,
+        0.1353
+      ],
+      "tris": {
+        "high": 21966,
+        "low": 6716
+      },
+      "sourceTris": 45568
+    },
+    {
+      "id": "brain",
+      "layer": "organs",
+      "en": "Brain",
+      "fma": "FMA50801",
+      "source": "bodyparts3d",
+      "parts": 80,
+      "centroid": [
+        0.0002,
+        1.6449,
+        -0.031
+      ],
+      "min": [
+        -0.0693,
+        1.5426,
+        -0.111
+      ],
+      "max": [
+        0.0703,
+        1.7086,
+        0.0689
+      ],
+      "tris": {
+        "high": 30232,
+        "low": 10252
+      },
+      "sourceTris": 766844
+    },
+    {
+      "id": "heart",
+      "layer": "organs",
+      "en": "Heart",
+      "fma": "FMA7088",
+      "source": "bodyparts3d",
+      "parts": 79,
+      "centroid": [
+        0.0134,
+        1.3073,
+        0.0189
+      ],
+      "min": [
+        -0.0357,
+        1.2531,
+        -0.0306
+      ],
+      "max": [
+        0.08,
+        1.3576,
+        0.0757
+      ],
+      "tris": {
+        "high": 23956,
+        "low": 7972
+      },
+      "sourceTris": 97696
+    },
+    {
+      "id": "lung-right",
+      "layer": "organs",
+      "en": "Right lung",
+      "fma": "FMA7333",
+      "source": "hra",
+      "parts": 1,
+      "centroid": [
+        -0.0512,
+        1.3151,
+        -0.0233
+      ],
+      "min": [
+        -0.1049,
+        1.2023,
+        -0.0772
+      ],
+      "max": [
+        -0.0011,
+        1.4283,
+        0.047
+      ],
+      "tris": {
+        "high": 10625,
+        "low": 4799
+      },
+      "sourceTris": 10625
+    },
+    {
+      "id": "lung-left",
+      "layer": "organs",
+      "en": "Left lung",
+      "fma": "FMA7370",
+      "source": "hra",
+      "parts": 1,
+      "centroid": [
+        0.0582,
+        1.3041,
+        -0.0178
+      ],
+      "min": [
+        0.006,
+        1.1942,
+        -0.0708
+      ],
+      "max": [
+        0.1115,
+        1.4209,
+        0.0544
+      ],
+      "tris": {
+        "high": 8824,
+        "low": 4918
+      },
+      "sourceTris": 8824
+    },
+    {
+      "id": "airways",
+      "layer": "organs",
+      "en": "Trachea and bronchial tree",
+      "fma": "FMA7394",
+      "source": "bodyparts3d",
+      "parts": 53,
+      "centroid": [
+        0.0257,
+        1.3733,
+        -0.0057
+      ],
+      "min": [
+        -0.099,
+        1.2488,
+        -0.0593
+      ],
+      "max": [
+        0.114,
+        1.4736,
+        0.0771
+      ],
+      "tris": {
+        "high": 7976,
+        "low": 2654
+      },
+      "sourceTris": 26232
+    },
+    {
+      "id": "esophagus",
+      "layer": "organs",
+      "en": "Esophagus",
+      "fma": "FMA7131",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        0.0033,
+        1.328,
+        -0.0156
+      ],
+      "min": [
+        -0.0082,
+        1.1941,
+        -0.0344
+      ],
+      "max": [
+        0.0243,
+        1.4685,
+        0.0235
+      ],
+      "tris": {
+        "high": 578,
+        "low": 578
+      },
+      "sourceTris": 578
+    },
+    {
+      "id": "diaphragm",
+      "layer": "organs",
+      "en": "Diaphragm",
+      "fma": "FMA13295",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        -0.006,
+        1.1946,
+        0.0084
+      ],
+      "min": [
+        -0.1217,
+        1.064,
+        -0.0749
+      ],
+      "max": [
+        0.1215,
+        1.2707,
+        0.1046
+      ],
+      "tris": {
+        "high": 8000,
+        "low": 2500
+      },
+      "sourceTris": 68522
+    },
+    {
+      "id": "liver",
+      "layer": "organs",
+      "en": "Liver",
+      "fma": "FMA7197",
+      "source": "bodyparts3d",
+      "parts": 8,
+      "centroid": [
+        -0.037,
+        1.2004,
+        0.0332
+      ],
+      "min": [
+        -0.1144,
+        1.1061,
+        -0.0574
+      ],
+      "max": [
+        0.095,
+        1.2613,
+        0.1016
+      ],
+      "tris": {
+        "high": 13992,
+        "low": 4994
+      },
+      "sourceTris": 119252
+    },
+    {
+      "id": "gallbladder",
+      "layer": "organs",
+      "en": "Gallbladder",
+      "fma": "FMA7202",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        -0.048,
+        1.1466,
+        0.0535
+      ],
+      "min": [
+        -0.0626,
+        1.1292,
+        0.0294
+      ],
+      "max": [
+        -0.0262,
+        1.1696,
+        0.0778
+      ],
+      "tris": {
+        "high": 1500,
+        "low": 600
+      },
+      "sourceTris": 2396
+    },
+    {
+      "id": "stomach",
+      "layer": "organs",
+      "en": "Stomach",
+      "fma": "FMA7148",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        0.0499,
+        1.1751,
+        0.0418
+      ],
+      "min": [
+        -0.0283,
+        1.118,
+        -0.0193
+      ],
+      "max": [
+        0.1062,
+        1.235,
+        0.0936
+      ],
+      "tris": {
+        "high": 1810,
+        "low": 1200
+      },
+      "sourceTris": 1810
+    },
+    {
+      "id": "spleen",
+      "layer": "organs",
+      "en": "Spleen",
+      "fma": "FMA7196",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        0.09,
+        1.1626,
+        -0.0128
+      ],
+      "min": [
+        0.0563,
+        1.1297,
+        -0.0546
+      ],
+      "max": [
+        0.1145,
+        1.2,
+        0.0405
+      ],
+      "tris": {
+        "high": 1330,
+        "low": 800
+      },
+      "sourceTris": 1330
+    },
+    {
+      "id": "pancreas",
+      "layer": "organs",
+      "en": "Pancreas",
+      "fma": "FMA7198",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        0.0004,
+        1.1233,
+        0.024
+      ],
+      "min": [
+        -0.0473,
+        1.0825,
+        -0.0054
+      ],
+      "max": [
+        0.0733,
+        1.1562,
+        0.0456
+      ],
+      "tris": {
+        "high": 4000,
+        "low": 1500
+      },
+      "sourceTris": 4890
+    },
+    {
+      "id": "kidney-right",
+      "layer": "organs",
+      "en": "Right kidney",
+      "fma": "FMA7204",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        -0.0575,
+        1.0966,
+        -0.0121
+      ],
+      "min": [
+        -0.0869,
+        1.0449,
+        -0.0361
+      ],
+      "max": [
+        -0.0298,
+        1.1494,
+        0.0111
+      ],
+      "tris": {
+        "high": 2310,
+        "low": 1200
+      },
+      "sourceTris": 2310
+    },
+    {
+      "id": "kidney-left",
+      "layer": "organs",
+      "en": "Left kidney",
+      "fma": "FMA7205",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        0.0627,
+        1.116,
+        -0.0216
+      ],
+      "min": [
+        0.0335,
+        1.0626,
+        -0.0412
+      ],
+      "max": [
+        0.091,
+        1.1686,
+        -0.0006
+      ],
+      "tris": {
+        "high": 2982,
+        "low": 1200
+      },
+      "sourceTris": 2982
+    },
+    {
+      "id": "small-intestine",
+      "layer": "organs",
+      "en": "Small intestine",
+      "fma": "FMA7200",
+      "source": "bodyparts3d",
+      "parts": 55,
+      "centroid": [
+        0.0044,
+        1.0021,
+        0.0498
+      ],
+      "min": [
+        -0.0864,
+        0.8834,
+        0.0031
+      ],
+      "max": [
+        0.1073,
+        1.1552,
+        0.0827
+      ],
+      "tris": {
+        "high": 8974,
+        "low": 3398
+      },
+      "sourceTris": 15906
+    },
+    {
+      "id": "large-intestine",
+      "layer": "organs",
+      "en": "Large intestine",
+      "fma": "FMA7201",
+      "source": "bodyparts3d",
+      "parts": 7,
+      "centroid": [
+        0.0068,
+        1.0203,
+        0.0122
+      ],
+      "min": [
+        -0.1261,
+        0.8354,
+        -0.0895
+      ],
+      "max": [
+        0.1181,
+        1.1428,
+        0.0962
+      ],
+      "tris": {
+        "high": 11978,
+        "low": 3996
+      },
+      "sourceTris": 58988
+    },
+    {
+      "id": "bladder",
+      "layer": "organs",
+      "en": "Urinary bladder",
+      "fma": "FMA15900",
+      "source": "bodyparts3d",
+      "parts": 1,
+      "centroid": [
+        -0.0002,
+        0.8894,
+        -0.017
+      ],
+      "min": [
+        -0.0335,
+        0.8678,
+        -0.0442
+      ],
+      "max": [
+        0.0333,
+        0.9081,
+        0.0275
+      ],
+      "tris": {
+        "high": 226,
+        "low": 226
+      },
+      "sourceTris": 226
+    }
+  ]
+}

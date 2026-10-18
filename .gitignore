@@ -2,3 +2,4 @@ node_modules/
 smoke-out/
 .DS_Store
 ornek-dicom/
+.cache/

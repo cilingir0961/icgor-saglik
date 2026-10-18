@@ -7,7 +7,21 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
     "serve": "python3 -m http.server 8000",
-    "smoke": "node scripts/browser-smoke.mjs"
+    "smoke": "node scripts/browser-smoke.mjs",
+    "build:anatomy": "node scripts/anatomy/build.mjs",
+    "vendor": "node scripts/vendor.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
+    "meshoptimizer": "1.3.0"
+  }
 }
