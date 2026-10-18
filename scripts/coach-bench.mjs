@@ -7,6 +7,7 @@ import { dirname, resolve } from 'node:path';
 import { serve, launchChrome } from './lib/cdp.mjs';
 import { createCoach } from '../src/fitness/coach.js';
 import { MP } from '../src/analysis/geometry.js';
+import { MOVEMENT_TESTS } from '../src/analysis/movement.js';
 
 const MODEL = process.argv[2] ?? 'full';
 const OUT = resolve(process.argv[3] ?? `.cache/bench/coach-bench-${MODEL}.json`);
@@ -60,11 +61,13 @@ async function main() {
       if (ONLY && !ONLY.includes(id)) continue;
       const A = createCoach(S.kind, { width: W, height: H });
       const T = createCoach(S.kind, { width: W, height: H });
+      const meas = [], tru = [];
       for (const [i, p] of S.frames.entries()) {
         const r = await page.eval(`window.run(${JSON.stringify(p)})`);
         const t = i / FPS;
         A.push(r.lm, t);
         T.push(r.lm ? truthLandmarks(r.truth, r.lm) : null, t);
+        if (r.lm) { meas.push({ t, lm: r.lm }); tru.push({ t, lm: truthLandmarks(r.truth, r.lm) }); }
       }
       const a = A.summary(), tr = T.summary();
       const side = (s) => (s?.sides ? (s.sides.L.reps >= s.sides.R.reps ? s.sides.L : s.sides.R) : null);
@@ -78,6 +81,15 @@ async function main() {
       row.extremeErr = row.extreme != null && row.extremeTruth != null ? +(row.extreme - row.extremeTruth).toFixed(1) : null;
       if (S.kind === 'arm-raise' && a.sides && tr.sides) {
         row.perSideErr = { L: +(a.sides.L.extreme.value - tr.sides.L.extreme.value).toFixed(1), R: +(a.sides.R.extreme.value - tr.sides.R.extreme.value).toFixed(1) };
+      }
+      // Aynı kareler tarama ekranının kol kaldırma çözümleyicisiyle (movement.js) — "Bana Anlat" bu testi de kullanır
+      if (S.kind === 'arm-raise') {
+        const ctx = { width: W, height: H };
+        const mA = MOVEMENT_TESTS['kol-kaldirma'].analyze(meas, ctx).metrics, mT = MOVEMENT_TESTS['kol-kaldirma'].analyze(tru, ctx).metrics;
+        row.scanTest = {
+          L: +(mA.abductionL.value - mT.abductionL.value).toFixed(1), R: +(mA.abductionR.value - mT.abductionR.value).toFixed(1),
+          asym: mA.abductionAsym.value, asymTruth: mT.abductionAsym.value, u: mA.abductionAsym.u, distinguishable: mA.abductionAsym.distinguishable,
+        };
       }
       out[id] = row;
       console.log(id, JSON.stringify(row));
