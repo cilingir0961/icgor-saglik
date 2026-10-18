@@ -32,6 +32,19 @@ const POSE_MODELS = ['lite', 'full'].map((m) => ({
   out: `mediapipe/models/pose_landmarker_${m}.task`,
 }));
 
+/**
+ * MediaPipe Tasks, kullanım istatistiklerini (API adı, gecikme; görüntü değil) 60 sn'de bir
+ * odml.pa.googleapis.com'a göndermeye çalışır. İçGör hiçbir veriyi dışarı göndermez: gönderim işlevi
+ * etkisiz kılınır (CSP de ayrıca engeller). Kalıp bulunamazsa (sürüm değişti) kopyalama başarısız olur.
+ */
+export function disableTelemetry(src) {
+  const pattern = 'flush(t,e){if(this.error)';
+  if (!src.includes('https://odml.pa.googleapis.com/v1/log') || src.split(pattern).length !== 2) {
+    throw new Error('MediaPipe telemetri kalıbı bulunamadı; vendor.mjs güncellenmeli');
+  }
+  return src.replace(pattern, 'flush(t,e){this.i=[];t?.();return;if(this.error)');
+}
+
 async function copy(src, dst, transform) {
   await mkdir(dirname(dst), { recursive: true });
   if (!transform) return copyFile(src, dst);
@@ -66,9 +79,9 @@ async function main() {
 
   const mp = join(NM, '@mediapipe/tasks-vision');
   versions['@mediapipe/tasks-vision'] = JSON.parse(await readFile(join(mp, 'package.json'), 'utf8')).version;
-  await copy(join(mp, 'vision_bundle.mjs'), join(V, 'mediapipe/vision_bundle.mjs'), (s) => s.replace(/\n\/\/# sourceMappingURL=.*$/m, ''));
+  await copy(join(mp, 'vision_bundle.mjs'), join(V, 'mediapipe/vision_bundle.mjs'), (s) => disableTelemetry(s.replace(/\n\/\/# sourceMappingURL=.*$/m, '')));
   for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm']) await copy(join(mp, 'wasm', f), join(V, 'mediapipe/wasm', f));
-  await writeFile(join(V, 'mediapipe/LICENSE'), 'Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0\nMediaPipe Tasks Vision, © Google LLC.\n');
+  await writeFile(join(V, 'mediapipe/LICENSE'), 'Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0\nMediaPipe Tasks Vision, © Google LLC.\nDeğişiklik (İçGör): vision_bundle.mjs içindeki kullanım telemetrisi gönderimi devre dışı bırakıldı (scripts/vendor.mjs, disableTelemetry).\n');
 
   for (const M of POSE_MODELS) {
     const res = await fetch(M.url);

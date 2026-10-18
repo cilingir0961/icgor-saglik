@@ -38,6 +38,7 @@
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
     <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></symbol>
     <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24"><circle cx="9" cy="4.5" r="2"/><path d="M6 21v-6l-1.5-1V9.5A2.5 2.5 0 0 1 7 7h4a2.5 2.5 0 0 1 2.5 2.5V14L12 15v6"/><path d="M18 3v18M18 6h3M18 10h2M18 14h3M18 18h2"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
   </svg>
 
@@ -162,6 +163,26 @@
       </div>
     </section>
 
+    <!-- ================= KİŞİSEL TARAMA ================= -->
+    <section class="screen" id="screen-scan" aria-label="Kişisel duruş ve hareket taraması">
+      <div class="scan-page" id="scan-page"></div>
+      <div class="scan-capture" id="scan-capture" hidden>
+        <div class="viewport" id="scan-viewport">
+          <video id="scan-video" playsinline muted></video>
+          <canvas id="scan-overlay"></canvas>
+        </div>
+        <div class="chip provenance warn" data-kind="ar"><svg><use href="#i-shield"/></svg>Deneysel ölçüm · tanı değildir · görüntü cihazda kalır</div>
+        <div class="scan-hud" aria-live="polite">
+          <strong id="scan-step"></strong>
+          <p id="scan-text"></p>
+          <ul id="scan-checks" class="scan-checks"></ul>
+          <progress id="scan-progress" max="1" value="0" hidden></progress>
+        </div>
+        <div class="scan-countdown" id="scan-countdown" hidden aria-live="assertive"></div>
+        <button class="btn danger big" id="btn-scan-stop"><svg><use href="#i-close"/></svg>Durdur</button>
+      </div>
+    </section>
+
     <!-- ================= TIBBİ GÖRÜNTÜ (DICOM) ================= -->
     <section class="screen" id="screen-imaging" aria-label="Tıbbi görüntü inceleme">
       <div class="viewport" id="imaging-viewport"><canvas id="imaging-canvas"></canvas></div>
@@ -218,6 +239,7 @@
   <nav class="tabbar" aria-label="Ekranlar">
     <a href="#/anatomi" data-tab="anatomy"><svg><use href="#i-body"/></svg><span>Anatomi</span></a>
     <a href="#/kamera" data-tab="camera"><svg><use href="#i-camera"/></svg><span>Kamera</span></a>
+    <a href="#/tarama" data-tab="scan"><svg><use href="#i-ruler"/></svg><span>Tarama</span></a>
     <a href="#/goruntu" data-tab="imaging"><svg><use href="#i-scan"/></svg><span>Görüntü</span></a>
   </nav>
 

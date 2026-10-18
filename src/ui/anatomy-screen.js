@@ -364,10 +364,45 @@ export async function createAnatomyScreen() {
   desktop.addEventListener('change', syncInsets);
   viewport.addEventListener('pointerdown', () => { $('anatomy-hint').hidden = true; }, { once: true });
 
+  // Tarama raporundan gelen eğitim vurgusu ve dijital ikiz oranları (#/anatomi?ikiz)
+  let twinChip = null;
+  function clearTwin() {
+    viewer.setHighlight(null);
+    viewer.setTwin(null);
+    twinChip?.remove();
+    twinChip = null;
+  }
+  function applyTwin() {
+    if (!location.hash.includes('ikiz')) return;
+    let data = null;
+    try { data = JSON.parse(sessionStorage.getItem('icgor.highlight') ?? 'null'); } catch { /* yok */ }
+    if (!data) return;
+    clearTwin();
+    viewer.setHighlight(data.ids);
+    if (data.twin) viewer.setTwin(data.twin);
+    viewer.resetView();
+    viewer.setHighlight(data.ids); // resetView seçimi temizler; vurgu korunur
+    const chip = document.createElement('div');
+    chip.className = 'twin-chip';
+    chip.id = 'twin-chip';
+    const t = document.createElement('strong');
+    t.textContent = `${data.title}: ilgili yapılar (genel anatomi)`;
+    const p = document.createElement('p');
+    p.textContent = `${data.anatomy} ${data.twin ? 'Model boyunuza ve omuz genişliği oranınıza göre ölçeklendi (tahmini); iç yapılar atlas referansıdır, size ait değildir.' : ''}`;
+    const b = document.createElement('button');
+    b.className = 'btn small';
+    b.textContent = 'Vurguyu kaldır';
+    b.addEventListener('click', () => { clearTwin(); history.replaceState(null, '', '#/anatomi'); });
+    chip.append(t, p, b);
+    $('screen-anatomy').append(chip);
+    twinChip = chip;
+  }
+  $('btn-reset').addEventListener('click', clearTwin);
+
   await load();
   return {
     viewer,
-    activate() { viewer.setActive(true); },
+    activate() { viewer.setActive(true); applyTwin(); },
     deactivate() { viewer.setActive(false); $('layers-panel').hidden = true; },
   };
 }

@@ -56,15 +56,17 @@ test('kalite: kararlılık ve parlaklık istatistiği', () => {
   near(l.mean, 0.5, 1e-6); near(l.std, 0.5, 1e-6);
 });
 
-test('duruş (önden): sol omuz 3 cm yüksek → + işaret, cm değeri, belirgin; arkadan işaret aynı anlama gelir', () => {
+test('duruş (önden): sol omuz 5 cm yüksek → + işaret, cm değeri, belirgin; arkadan işaret aynı anlama gelir; 2 cm ayırt edilemez', () => {
   const o = { view: 'front', width: W, height: H, userHeightCm: HEIGHT, level: 'known' };
-  const m = postureMetrics(frames({ shoulderRaiseL: 3 }), o);
+  const m = postureMetrics(frames({ shoulderRaiseL: 5 }), o);
   assert.ok(m.shoulderLevel.value > 0, 'sol omuz yüksek → +');
-  near(m.shoulderLevelCm.value, 3, 0.3, 'cm');
+  near(m.shoulderLevelCm.value, 5, 0.3, 'cm');
+  // 2 cm: belirsizliğin (≈1,7 cm) iki katının altında → bildirilmez
+  assert.equal(postureMetrics(frames({ shoulderRaiseL: 2 }), o).shoulderLevelCm.distinguishable, false);
   assert.equal(m.shoulderLevelCm.distinguishable, true);
   assert.match(describe(m.shoulderLevelCm), /sol omuz daha yüksek.*tanı değildir/);
-  const back = postureMetrics(frames({ view: 'back', shoulderRaiseL: 3 }), { ...o, view: 'back' });
-  near(back.shoulderLevelCm.value, 3, 0.3, 'arka görünüm');
+  const back = postureMetrics(frames({ view: 'back', shoulderRaiseL: 5 }), { ...o, view: 'back' });
+  near(back.shoulderLevelCm.value, 5, 0.3, 'arka görünüm');
 });
 
 test('duruş: nötr duruşta sapma belirsizlik içinde; kamera eğimi bilinmiyorsa belirsizlik büyür', () => {
@@ -78,8 +80,8 @@ test('duruş: nötr duruşta sapma belirsizlik içinde; kamera eğimi bilinmiyor
 });
 
 test('duruş: gövdenin yana eğilimi işaret ve büyüklük', () => {
-  const m = postureMetrics(frames({ lean: 5 }), { view: 'front', width: W, height: H, level: 'known' });
-  near(m.trunkLateral.value, 5, 0.3);
+  const m = postureMetrics(frames({ lean: 6 }), { view: 'front', width: W, height: H, level: 'known' });
+  near(m.trunkLateral.value, 6, 0.3);
   assert.match(m.trunkLateral.sense, /soluna/);
 });
 

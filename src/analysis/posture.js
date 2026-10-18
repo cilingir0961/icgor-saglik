@@ -2,7 +2,8 @@
 //
 // İlkeler:
 //  - Referans "geometrik nötr"dür (0° eğim, kulak omuz hizasında vb.). Klinik eşik KULLANILMAZ; hastalık adı verilmez.
-//  - Her değer ±belirsizlik ve güvenilirlik derecesiyle döner. Belirsizliğin içinde kalan sapma "ayırt edilemez" sayılır.
+//  - Her değer ±belirsizlik (u, 1σ) ve güvenilirlik derecesiyle döner. Sapma ancak 2u'yu (≈%95) aşarsa
+//    "ayırt edilebilir" sayılır (görünüş başına ~9 gösterge; 1σ ile yanlış bulgu olasılığı yüksek olurdu).
 //  - Doğrulanmamış göstergeler experimental: true (arayüzde "Deneysel").
 //  - Taraflar ekran konumundan ve görünüşten çıkarılır (MediaPipe sol/sağ etiketi arka görünümde karışabilir).
 
@@ -18,6 +19,8 @@ export const U_SYS = {
 };
 /** Kamera eğimi bilinmiyorsa (cihaz sensörü yok/izin yok) eğim açılarına eklenen pay (derece). */
 export const U_LEVEL_UNKNOWN = 4;
+/** Karar çarpanı: sapma > K × u ise gözlem bildirilir (≈ %95 güven). */
+export const K_DECIDE = 2;
 export const U_LEVEL_KNOWN = 1.5;
 
 const GRADE = { iyi: 'iyi', orta: 'orta', dusuk: 'düşük', yok: 'ölçülemedi' };
@@ -128,6 +131,7 @@ export const METRICS = {
   },
   kneeSagittal: {
     tr: 'Diz hizası (yandan)', unit: '°', views: ['side'], experimental: true, topic: 'knee-sagittal',
+    neutral: null,
     sense: (v) => (v > 0 ? 'diz hafif bükülü' : 'diz düz çizginin gerisinde'),
     keys: ['Hip', 'Knee', 'Ankle'],
     compute: ({ lm, w, h, side, facing }) => {
@@ -145,6 +149,8 @@ function kneeFrontal(S) {
   const side = S === 'L' ? 'left' : 'right';
   return {
     tr: `${S === 'L' ? 'Sol' : 'Sağ'} diz hizası (önden)`, unit: '°', views: ['front'], experimental: true, topic: 'knee-frontal',
+    // Olağan dizilimde de birkaç derecelik açı vardır; 0 nötr değildir → yalnızca kişisel karşılaştırma
+    neutral: null,
     sense: (v) => (v > 0 ? 'diz orta hatta doğru' : 'diz dışa doğru'),
     keys: [`${side}Hip`, `${side}Knee`, `${side}Ankle`],
     compute: ({ lm, w, h }) => {
@@ -215,8 +221,8 @@ export function postureMetrics(frames, o) {
     const dev = hasNeutral ? value - base.neutral : 0;
     out[id] = {
       ...base, value: +value.toFixed(1), u: +u.toFixed(1), grade: grade(u, M), uStat: +uStat.toFixed(2),
-      distinguishable: hasNeutral ? Math.abs(dev) > u : null,
-      sense: hasNeutral && Math.abs(dev) > u ? M.sense(value) : null,
+      distinguishable: hasNeutral ? Math.abs(dev) > K_DECIDE * u : null,
+      sense: hasNeutral && Math.abs(dev) > K_DECIDE * u ? M.sense(value) : null,
     };
   }
   return out;
@@ -235,8 +241,9 @@ function facingOf(frames, w, h) {
 /** Gözlem cümlesi (teşhis değildir). */
 export function describe(m) {
   if (m.value === null) return `${m.tr}: bu çekimde güvenilir ölçülemedi.`;
-  const v = `${m.value > 0 && m.neutral === 0 ? '+' : ''}${m.value.toLocaleString('tr-TR')} ${m.unit} (± ${m.u.toLocaleString('tr-TR')})`;
+  const sp = m.unit === '°' ? '' : ' ';
+  const v = `${m.value > 0 && m.neutral === 0 ? '+' : ''}${m.value.toLocaleString('tr-TR')}${sp}${m.unit} (± ${m.u.toLocaleString('tr-TR')}${sp}${m.unit})`;
   if (m.neutral === null) return `${m.tr}: ${v} — kişiden kişiye değişen bir değer; yalnızca kendi önceki taramalarınızla karşılaştırılır.`;
-  if (!m.distinguishable) return `${m.tr}: ${v} — nötr referanstan ölçüm belirsizliği içinde ayırt edilemiyor.`;
+  if (!m.distinguishable) return `${m.tr}: ${v} — nötr referanstan ölçüm belirsizliği içinde ayırt edilemiyor (karar sınırı ±${(2 * m.u).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}).`;
   return `${m.tr}: ${v} — ${m.sense}. Bu bir gözlemdir, tanı değildir.`;
 }

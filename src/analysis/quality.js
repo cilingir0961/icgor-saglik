@@ -18,7 +18,9 @@ export const LIMITS = {
   minVis: 0.6, margin: 0.03,
   heightFrac: [0.55, 0.92], // vücudun (göz–topuk) kare yüksekliğine oranı
   centerX: [0.3, 0.7],
-  light: { mean: [0.22, 0.88], std: 0.07 },
+  // Sezgisel eşikler: çok karanlık/parlak (ortalama) ve neredeyse düz (std) kareyi yakalar. Düz gri arka
+  // planlı sentetik sahne std 0,027 ölçüldü ve vücut takibi güvenilir çalıştı; eşik bu yüzden 0,015.
+  light: { mean: [0.22, 0.88], std: 0.015 },
   level: { roll: 3, pitch: 6 }, // derece
   jitter: 0.015, // gövde boyuna göre medyan kare-kare oynama
   sideRatio: 0.38, frontRatio: 0.55, // omuz genişliği / gövde boyu

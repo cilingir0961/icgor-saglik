@@ -1,0 +1,166 @@
+{
+ "date": "2026-10-18T08:06:48.195Z",
+ "model": "full",
+ "fps": 15,
+ "note": "Sentetik figür, kare kare MediaPipe full (IMAGE). Yer gerçeği: aynı çözümleyici gerçek eklem noktalarında. Boyun testi figürde modellenmediği için doğrulanmadı.",
+ "out": {
+  "kol-kaldirma": {
+   "reps": {
+    "L": 3,
+    "R": 3
+   },
+   "truthReps": {
+    "L": 3,
+    "R": 3
+   },
+   "rows": {
+    "abductionL": {
+     "tr": "Sol kol kaldırma açısı (en yüksek)",
+     "measured": 159.3,
+     "u": 3,
+     "truth": 156.1,
+     "err": 3.2,
+     "experimental": false
+    },
+    "abductionR": {
+     "tr": "Sağ kol kaldırma açısı (en yüksek)",
+     "measured": 121.9,
+     "u": 3,
+     "truth": 127.8,
+     "err": -5.9,
+     "experimental": false
+    },
+    "abductionAsym": {
+     "tr": "Sağ–sol fark (kol kaldırma)",
+     "measured": 37.4,
+     "u": 4.2,
+     "truth": 28.3,
+     "err": 9.1,
+     "experimental": false
+    }
+   }
+  },
+  "comelme": {
+   "reps": {
+    "n": 2
+   },
+   "truthReps": {
+    "n": 2
+   },
+   "rows": {
+    "kneeMin": {
+     "tr": "En küçük diz açısı (en derin an)",
+     "measured": 91,
+     "u": 6,
+     "truth": 88.7,
+     "err": 2.3,
+     "experimental": false
+    },
+    "hipMin": {
+     "tr": "En küçük kalça açısı (en derin an)",
+     "measured": 118.9,
+     "u": 6,
+     "truth": 117.5,
+     "err": 1.4,
+     "experimental": false
+    },
+    "trunkLean": {
+     "tr": "Gövdenin öne eğimi (en derin an)",
+     "measured": 2.7,
+     "u": 3,
+     "truth": 0,
+     "err": 2.7,
+     "experimental": false
+    },
+    "depthConsistency": {
+     "tr": "Tekrarlar arası derinlik farkı",
+     "measured": 0,
+     "u": 8.5,
+     "truth": 0,
+     "err": 0,
+     "experimental": true
+    }
+   }
+  },
+  "one-egilme": {
+   "reps": {
+    "n": 1
+   },
+   "truthReps": {
+    "n": 1
+   },
+   "rows": {
+    "trunkFlexMax": {
+     "tr": "Gövdenin en fazla öne eğilmesi",
+     "measured": 49.9,
+     "u": 4.2,
+     "truth": 51.2,
+     "err": -1.3,
+     "experimental": false
+    },
+    "fingerFloor": {
+     "tr": "Parmak ucu – zemin mesafesi (en derin an)",
+     "measured": 82.8,
+     "u": 3.5,
+     "truth": null,
+     "err": null,
+     "experimental": true
+    }
+   }
+  },
+  "tek-ayak": {
+   "reps": {},
+   "truthReps": {},
+   "rows": {
+    "holdL": {
+     "tr": "Sağ ayak üzerinde süre",
+     "measured": 4.9,
+     "u": 0.3,
+     "truth": 5,
+     "err": -0.1
+    },
+    "swayL": {
+     "tr": "Sağ ayakta kalça salınımı (yatay)",
+     "measured": 0.7,
+     "u": 0.7,
+     "truth": 0.7,
+     "err": 0,
+     "experimental": true
+    },
+    "holdR": {
+     "tr": "Sol ayak üzerinde süre",
+     "measured": null,
+     "u": null,
+     "truth": null,
+     "err": null
+    }
+   }
+  },
+  "yuruyus": {
+   "reps": {
+    "n": 7
+   },
+   "truthReps": {
+    "n": 6
+   },
+   "rows": {
+    "cadence": {
+     "tr": "Adım sıklığı (kadans)",
+     "measured": 112.5,
+     "u": 12.7,
+     "truth": 109.09090909090908,
+     "err": 3.4,
+     "experimental": true
+    },
+    "stepSymmetry": {
+     "tr": "Adım süresi oranı (sol/sağ)",
+     "measured": 1,
+     "u": 0.1,
+     "truth": 0.9,
+     "err": 0.1,
+     "experimental": true
+    }
+   }
+  }
+ }
+}

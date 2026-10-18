@@ -11,13 +11,15 @@ const MODEL_URL = {
   heavy: '../../.cache/models/pose_landmarker_heavy.task',
 }[model];
 const fig = await createFigure({ width: Number(q.get('w') ?? 640), height: Number(q.get('h') ?? 480) });
-const fileset = await FilesetResolver.forVisionTasks(new URL('../../vendor/mediapipe/wasm', import.meta.url).href);
-const landmarker = await PoseLandmarker.createFromOptions(fileset, {
+// ?nomp=1: yalnızca figür çizimi (sahte kamera videosu üretimi için MediaPipe yüklenmez)
+const fileset = q.get('nomp') ? null : await FilesetResolver.forVisionTasks(new URL('../../vendor/mediapipe/wasm', import.meta.url).href);
+const landmarker = !fileset ? null : await PoseLandmarker.createFromOptions(fileset, {
   baseOptions: { modelAssetPath: new URL(MODEL_URL, import.meta.url).href, delegate: q.get('delegate') ?? 'GPU' },
   runningMode: 'IMAGE', numPoses: 1,
 });
 window.run = (params) => {
   const truth = fig.render(params);
+  if (!landmarker) return { truth };
   const t = performance.now();
   const res = landmarker.detect(fig.canvas);
   const ms = performance.now() - t;

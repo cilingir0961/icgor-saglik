@@ -26,13 +26,14 @@ export function change(m1, m2) {
   const delta = m2.value - m1.value;
   const mdc = 1.96 * Math.sqrt(m1.u ** 2 + m2.u ** 2);
   const res = { delta: +delta.toFixed(1), mdc: +mdc.toFixed(1) };
-  if (Math.abs(delta) <= mdc) return { ...res, status: 'belirsiz', text: `Fark (${fmt(delta)} ${m1.unit}) ölçüm belirsizliği içinde (±${fmt(mdc)}); değişim gösterilemiyor.` };
+  const sp = m1.unit === '°' ? '' : ' ';
+  if (Math.abs(delta) <= mdc) return { ...res, status: 'belirsiz', text: `Fark (${fmt(delta)}${sp}${m1.unit}) ölçüm belirsizliği içinde (±${fmt(mdc)}); değişim gösterilemiyor.` };
   let toward = '';
   if (m1.neutral !== null && m1.neutral !== undefined) {
     const closer = Math.abs(m2.value - m1.neutral) < Math.abs(m1.value - m1.neutral);
     toward = closer ? ' Nötr referansa yaklaşmış.' : ' Nötr referanstan uzaklaşmış.';
   }
-  return { ...res, status: 'olasi', text: `Olası değişim: ${fmt(delta)} ${m1.unit} (en küçük saptanabilir değişim ±${fmt(mdc)}).${toward}` };
+  return { ...res, status: 'olasi', text: `Olası değişim: ${fmt(delta)}${sp}${m1.unit} (en küçük saptanabilir değişim ±${fmt(mdc)}).${toward}` };
 }
 
 const fmt = (x) => (x > 0 ? '+' : '') + x.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
@@ -64,6 +65,15 @@ export function compareScans(older, newer) {
     const c = comparable(old.conditions, cap.conditions);
     if (!c.ok) { res[view] = { ok: false, why: c.why }; continue; }
     res[view] = { ok: true, metrics: Object.fromEntries(Object.keys(cap.metrics).map((k) => [k, { tr: cap.metrics[k].tr, ...change(old.metrics[k], cap.metrics[k]) }])) };
+  }
+  // Hareket testleri: aynı test, karşılaştırılabilir koşullar
+  for (const [id, mv] of Object.entries(newer.movements ?? {})) {
+    const key = `hareket:${id}`;
+    const old = older.movements?.[id];
+    if (!old) { res[key] = { ok: false, label: mv.tr, why: ['önceki taramada bu test yok'] }; continue; }
+    const c = comparable(old.conditions, mv.conditions);
+    if (!c.ok) { res[key] = { ok: false, label: mv.tr, why: c.why }; continue; }
+    res[key] = { ok: true, label: mv.tr, metrics: Object.fromEntries(Object.keys(mv.metrics).map((k) => [k, { tr: mv.metrics[k].tr, ...change(old.metrics[k], mv.metrics[k]) }])) };
   }
   return res;
 }

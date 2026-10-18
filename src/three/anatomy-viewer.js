@@ -179,7 +179,39 @@ export class AnatomyViewer extends EventTarget {
     if (this.anim.motion && s.layer === 'skin') return 0; // deri rijit segmentlerle deforme olamaz
     if (this.isolated && this.isolated !== s.id) return s.layer === 'skin' ? 0 : GHOST;
     if (this.isolated === s.id) return s.opacity ?? 1;
+    if (this.highlighted) {
+      if (s.layer === 'skin') return Math.min(L.opacity, 0.1);
+      return this.highlighted.has(s.id) ? s.opacity ?? 1 : GHOST;
+    }
     return s.opacity ?? L.opacity;
+  }
+
+  /**
+   * Eğitim vurgusu: verilen yapılar belirgin, diğerleri soluk. İlgili tembel katmanlar açılır.
+   * @param {string[]|null} ids
+   */
+  setHighlight(ids) {
+    this.highlighted = ids?.length ? new Set(ids) : null;
+    if (this.highlighted && this.manifest) {
+      for (const id of this.highlighted) {
+        const layer = this.byId[id]?.layer;
+        if (layer && !this.layers[layer].visible) this.setLayerVisible(layer, true);
+      }
+    }
+    this._applyAll();
+  }
+
+  /**
+   * Dijital ikiz oranları (görsel yaklaşım): genel ölçek (boy) ve omuz genişliği oranı. İç yapılar atlas
+   * referansıdır; bu ölçekleme kişinin organlarını göstermez.
+   * @param {{overall:number, shoulderWidth:number}|null} t
+   */
+  setTwin(t) {
+    this.twin = t ?? null;
+    const k = t?.overall ?? 1, w = t?.shoulderWidth ?? 1;
+    this.root.scale.set(k * w, k, k);
+    this.root.updateMatrixWorld(true);
+    this.requestRender();
   }
 
   _applyAll() {
@@ -187,10 +219,11 @@ export class AnatomyViewer extends EventTarget {
       const op = this.effectiveOpacity(s);
       s.pivot.visible = op > 0.001;
       const sel = this.selected === s.id;
+      const hl = this.highlighted?.has(s.id);
       for (const m of s.materials) {
         applyOpacity(m, op);
-        m.emissive?.copy(sel ? ACCENT : new THREE.Color(0));
-        if (m.emissive) m.emissiveIntensity = sel ? 0.14 : 0;
+        m.emissive?.copy(sel || hl ? ACCENT : new THREE.Color(0));
+        if (m.emissive) m.emissiveIntensity = sel ? 0.14 : hl ? 0.07 : 0;
       }
     }
     this.requestRender();
@@ -388,18 +421,20 @@ export class AnatomyViewer extends EventTarget {
     const facingTest = labelLayer === 'muscles' || labelLayer === 'skeleton';
     for (const s of this.structures.values()) {
       if (s.layer === 'skin' || !s.info) continue;
-      if (!this.isolated && s.layer !== labelLayer) continue;
+      if (this.highlighted) { if (!this.highlighted.has(s.id)) continue; }
+      else if (!this.isolated && s.layer !== labelLayer) continue;
       const op = this.effectiveOpacity(s);
       if (op < 0.3) continue;
       // Etiket noktası yüzeydeki bağlantı noktası; eklem hareketinde segmentiyle birlikte taşınır
       let a = new THREE.Vector3(...(s.info.anchor ?? s.info.centroid));
-      if (facingTest && !this.animating) {
+      if ((this.highlighted ? s.layer === 'muscles' || s.layer === 'skeleton' : facingTest) && !this.animating) {
         const vis = this._visibleAnchor(s);
         if (vis) a = vis.clone();
         else if (!this.isolated && s.id !== this.selected && this._anchorCandidates(s).length) continue;
       }
       const segMesh = s.meshes.find((mm) => mm.userData.segment !== 'trunk' && mm.geometry.boundingBox?.containsPoint(a));
       if (segMesh) a.applyMatrix4(this.rig.matrices.get(segMesh.userData.segment));
+      a.applyMatrix4(this.root.matrixWorld); // dijital ikiz ölçeği
       const v = a.project(this.camera);
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
       out.push({ id: s.id, anchor: [(v.x + 1) / 2 * w, (1 - v.y) / 2 * h] });

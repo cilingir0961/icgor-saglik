@@ -62,8 +62,8 @@ function asymmetry(tr, L, R) {
   return {
     tr, unit: L.unit, value, u, experimental: L.experimental || R.experimental,
     grade: L.grade === 'düşük' || R.grade === 'düşük' ? 'düşük' : L.grade === 'orta' || R.grade === 'orta' ? 'orta' : 'iyi',
-    distinguishable: Math.abs(value) > u,
-    sense: Math.abs(value) > u ? (value > 0 ? 'sol taraf daha geniş/uzun' : 'sağ taraf daha geniş/uzun') : null,
+    distinguishable: Math.abs(value) > 2 * u, // ≈ %95 (posture.js K_DECIDE ile aynı)
+    sense: Math.abs(value) > 2 * u ? (value > 0 ? 'sol taraf daha geniş/uzun' : 'sağ taraf daha geniş/uzun') : null,
   };
 }
 
@@ -165,7 +165,8 @@ function analyzeArmRaise(samples, { width: w, height: h }) {
     });
     if (elbow.some((a) => a < 150)) out.issues.push(`${T} kolda dirsek tepe noktasında bükülü (${Math.round(Math.min(...elbow))}°); açı omuz hareketini tam yansıtmayabilir.`);
     if (foreshortened > samples.length * 0.2) out.issues.push(`${T} kol karelerin bir kısmında kameraya doğru yöneldi; o kareler ölçüme katılmadı.`);
-    per[S] = metric(`${T} kol kaldırma açısı (en yüksek)`, peaks.map((p) => p.value), { uSys: 3 });
+    // uSys 6°: sentetik dizide (MediaPipe full) taraf başına hata 3,2° ve −5,9° ölçüldü (scripts/movement-bench.mjs)
+    per[S] = metric(`${T} kol kaldırma açısı (en yüksek)`, peaks.map((p) => p.value), { uSys: 6 });
     out.metrics[`abduction${S}`] = per[S];
   }
   out.metrics.abductionAsym = asymmetry('Sağ–sol fark (kol kaldırma)', per.L, per.R);

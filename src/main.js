@@ -3,11 +3,12 @@
 
 import { loadManifest } from './three/assets.js';
 
-const ROUTES = { '#/anatomi': 'anatomy', '#/kamera': 'camera', '#/goruntu': 'imaging' };
+const ROUTES = { '#/anatomi': 'anatomy', '#/kamera': 'camera', '#/tarama': 'scan', '#/goruntu': 'imaging' };
 const screens = {};
 const loaders = {
   anatomy: () => import('./ui/anatomy-screen.js').then((m) => m.createAnatomyScreen()),
   camera: () => import('./camera/camera-screen.js').then((m) => m.createCameraScreen()),
+  scan: () => import('./scan/scan-screen.js').then((m) => m.createScanScreen()),
   imaging: () => import('./imaging/imaging-screen.js').then((m) => m.createImagingScreen()),
 };
 let current = null;

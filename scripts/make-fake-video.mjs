@@ -7,7 +7,7 @@ import { decodePng } from './lib/png.mjs';
 
 
 /** RGB → YUV 4:2:0 (BT.601, tam aralık — Y4M "C420jpeg"). */
-function toI420({ w, h, rgb }) {
+export function toI420({ w, h, rgb }) {
   const Y = Buffer.alloc(w * h), U = Buffer.alloc((w / 2) * (h / 2)), V = Buffer.alloc((w / 2) * (h / 2));
   for (let i = 0; i < w * h; i++) {
     const r = rgb[i * 3], g = rgb[i * 3 + 1], b = rgb[i * 3 + 2];
