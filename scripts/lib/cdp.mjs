@@ -3,30 +3,23 @@
 
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
 import { existsSync, mkdtempSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 export const ROOT = resolve(import.meta.dirname, '../..');
-const TYPES = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
-  '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.json': 'application/json', '.glb': 'model/gltf-binary',
-  '.wasm': 'application/wasm', '.task': 'application/octet-stream', '.md': 'text/markdown',
-};
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function serve(root = ROOT) {
-  const server = createServer(async (req, res) => {
-    const path = join(root, decodeURIComponent(new URL(req.url, 'http://x').pathname));
-    if (!path.startsWith(root)) return res.writeHead(403).end();
-    try {
-      const body = await readFile(path.endsWith('/') ? join(path, 'index.html') : path);
-      res.writeHead(200, { 'content-type': TYPES[extname(path)] ?? 'application/octet-stream' }).end(body);
-    } catch {
-      res.writeHead(404).end();
-    }
-  });
+/**
+ * Test/araç sunucusu: uygulamanın gerçek HTTP katmanı (server/app.mjs) + demo AI sağlayıcısı.
+ * .cache/ test dosyaları için sunulur; ücretli AI hiçbir koşulda etkin değildir (ortam değişkenleri yok sayılır).
+ */
+export async function serve(root = ROOT, { cfgEnv = {} } = {}) {
+  const { createApp } = await import('../../server/app.mjs');
+  const { loadConfig } = await import('../../server/ai/config.mjs');
+  const handler = createApp({ root, cfg: loadConfig(cfgEnv), allowCache: true });
+  const server = createServer(handler);
+  server.app = handler;
   return new Promise((r) => server.listen(0, '127.0.0.1', () => r(server)));
 }
 

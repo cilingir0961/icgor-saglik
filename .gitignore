@@ -3,3 +3,6 @@ smoke-out/
 .DS_Store
 ornek-dicom/
 .cache/
+server/data/
+.env
+.env.*

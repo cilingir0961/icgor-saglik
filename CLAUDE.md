@@ -3,7 +3,7 @@
 - Bu depo bağımsızdır. Kullanıcının diğer projelerine (ÇilingirApp, İlhamla, Sansiro vb.) dokunma.
 - İletişim Türkçe. Teknik kararları gerekçelendir, testleri çalıştırıp sonucu raporla.
 - Kullanıcının kalıcı yetkisi (2026-10-18): kod yazma/silme, dosya oluşturma, açık kaynak paket
-  kurma, test çalıştırma, commit ve YALNIZCA `cilingir0061/icgor-saglik` deposuna push, yeni özellik,
+  kurma, test çalıştırma, commit ve YALNIZCA `cilingir0961/icgor-saglik` deposuna push, yeni özellik,
   arayüz/performans iyileştirme ve güvenli ücretsiz araçlar onay beklemeden yapılabilir.
   Değişiklikler ve test sonuçları her seferinde raporlanır.
 - Sınırlar (onaysız ASLA): diğer projelere dokunmak; ücretli hizmet/abonelik; gerçek sağlık
