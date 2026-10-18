@@ -9,6 +9,8 @@ const ROUTES = {
   '#/kamera': 'camera', '#/goruntu': 'imaging',
 };
 const screens = {};
+// İçGör Studio: ekranın amacına göre tema (docs/DESIGN.md). Görsel/kamera ekranları koyu, günlük ekranlar açık.
+const DARK = new Set(['anatomy', 'camera', 'imaging']);
 const loaders = {
   anatomy: () => import('./ui/anatomy-screen.js').then((m) => m.createAnatomyScreen()),
   camera: () => import('./camera/camera-screen.js').then((m) => m.createCameraScreen()),
@@ -30,6 +32,8 @@ async function show(name) {
   if (current && screens[current]) (await screens[current]).deactivate?.();
   current = name;
   document.body.dataset.screen = name;
+  document.body.dataset.theme = DARK.has(name) ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', DARK.has(name) ? '#070d1c' : '#f3f6fb');
   document.getElementById('more-dialog')?.close();
   for (const a of document.querySelectorAll('.tabbar a, .more-list a')) {
     if (a.dataset.tab === name) a.setAttribute('aria-current', 'page');

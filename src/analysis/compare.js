@@ -5,6 +5,8 @@
 //  2) Değişim ancak en küçük saptanabilir değişimi (MDC95 = 1,96 × √(u₁² + u₂²)) aşarsa "olası değişim" sayılır.
 //  3) Yön (iyi/kötü) yorumu yapılmaz; yalnızca nötr referansa yaklaşma/uzaklaşma belirtilir.
 
+import { isUnreliable } from './validation-status.js';
+
 export const WINDOWS = [30, 60, 90];
 const DAY = 86400000;
 export const CONDITION_TOLERANCE = { heightFrac: 0.12 }; // kadraj oranı farkı (göreli)
@@ -73,7 +75,9 @@ export function compareScans(older, newer) {
     if (!old) { res[key] = { ok: false, label: mv.tr, why: ['önceki taramada bu test yok'] }; continue; }
     const c = comparable(old.conditions, mv.conditions);
     if (!c.ok) { res[key] = { ok: false, label: mv.tr, why: c.why }; continue; }
-    res[key] = { ok: true, label: mv.tr, metrics: Object.fromEntries(Object.keys(mv.metrics).map((k) => [k, { tr: mv.metrics[k].tr, ...change(old.metrics[k], mv.metrics[k]) }])) };
+    res[key] = { ok: true, label: mv.tr, metrics: Object.fromEntries(Object.keys(mv.metrics).map((k) => [k, isUnreliable(`${id}:${k}`)
+      ? { tr: mv.metrics[k].tr, status: 'yok', text: 'Ölçüm güvenilir değil; karşılaştırma yapılmıyor.' }
+      : { tr: mv.metrics[k].tr, ...change(old.metrics[k], mv.metrics[k]) }])) };
   }
   return res;
 }

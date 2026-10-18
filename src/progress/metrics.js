@@ -3,6 +3,7 @@
 // belirsizliğinden (en küçük saptanabilir değişim, MDC95) gelir.
 
 import { lastDays } from '../activity/steps.js';
+import { isUnreliable } from '../analysis/validation-status.js';
 
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = (xs) => { const m = mean(xs); return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1)); };
@@ -44,7 +45,7 @@ export function weeklyWorkouts(history, w = 6, now = new Date()) {
  */
 export function coachChanges(log) {
   const by = {};
-  for (const r of log ?? []) if (r.reliable && r.extreme?.value != null) (by[r.kind] ??= []).push(r);
+  for (const r of log ?? []) if (r.reliable && r.extreme?.value != null && !isUnreliable(`coach:${r.kind}:extreme`)) (by[r.kind] ??= []).push(r);
   return Object.entries(by).map(([kind, rs]) => {
     rs.sort((a, b) => a.date.localeCompare(b.date));
     const first = rs[0], last = rs.at(-1);

@@ -3,6 +3,7 @@
 
 import { regionHeadline } from './evaluate.js';
 import { BODY_REGIONS, STATUS } from './regions.js';
+import { isUnreliable } from '../analysis/validation-status.js';
 
 /** Sayıya gelen iyelik eki ("4'ü", "6'sı"). */
 const POSS = ['ı', 'i', 'si', 'ü', 'ü', 'i', 'sı', 'si', 'i', 'u', 'u', 'i', 'si'];
@@ -19,9 +20,11 @@ export function bodySummary(ev) {
     const ms = Object.values(cap.metrics ?? {});
     parts.push({ tr: VIEW_TR[view] ?? view, ok: ms.length > 0 && ms.filter((m) => m.value != null).length >= ms.length / 2 });
   }
-  for (const mv of Object.values(scan.movements ?? {})) {
-    const ms = Object.values(mv.metrics ?? {});
-    parts.push({ tr: mv.tr, ok: ms.some((m) => m.value != null && m.grade !== 'düşük') && !mv.stopped });
+  for (const [tid, mv] of Object.entries(scan.movements ?? {})) {
+    const ms = Object.entries(mv.metrics ?? {});
+    const usable = ms.filter(([k]) => !isUnreliable(`${tid}:${k}`)).map(([, m]) => m);
+    // Doğrulama bekleyen göstergeler (ör. kol kaldırma açısı) değerlendirilmiş sayılmaz
+    parts.push({ tr: mv.tr, ok: usable.some((m) => m.value != null && m.grade !== 'düşük') && !mv.stopped, unreliable: usable.length < ms.length && !usable.length });
   }
   const okN = parts.filter((p) => p.ok).length;
   const regions = Object.values(ev.regions);
@@ -55,5 +58,6 @@ export function bodySummary(ev) {
     title: 'Bugünkü hareket değerlendirmen',
     text: `${parts.length} ölçümün ${okN}'${POSS[okN] ?? 'i'} yeterli görüntü kalitesiyle değerlendirildi.`,
     parts, attention, positives: [...new Set(positives)].slice(0, 6), gray, next,
+    unreliable: parts.filter((p) => p.unreliable).map((p) => `${p.tr}: ölçüm güvenilir değil, tekrar deneyin (doğrulama bekliyor).`),
   };
 }

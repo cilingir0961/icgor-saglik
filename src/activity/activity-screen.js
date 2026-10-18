@@ -6,6 +6,7 @@ import { h, s, icon, fmt } from '../scan/dom.js';
 import { dayKey, lastDays, adaptiveGoal, weekStats, streak, demoDays } from './steps.js';
 import { SOURCES, motionSupport } from './sources.js';
 import { createPedometer } from './pedometer.js';
+import { pageHead, ring } from '../ui/visuals.js';
 
 export async function createActivityScreen() {
   const store = getStore();
@@ -26,14 +27,15 @@ export async function createActivityScreen() {
     const hasDemo = Object.values(days).some((d) => d.source === 'demo');
     const todaySteps = days[today]?.steps ?? 0;
     const input = h('input', { type: 'number', inputmode: 'numeric', min: 0, max: 100000, id: 'steps-input', placeholder: 'ör. 4200', 'aria-label': 'Bugünkü adım' });
-    page.replaceChildren(h('div', {},
-      h('h2', {}, 'Aktivite'),
-      h('p', { class: 'sub' }, 'Adım hedefiniz herkes için sabit 10.000 değildir; son günlerinize göre kademeli uyarlanır.'),
+    const pct = Math.min(100, Math.round((todaySteps / g.goal) * 100));
+    page.replaceChildren(h('div', { class: 'studio-page' },
+      pageHead('Aktivite', 'Adımların', 'Hedefin herkes için sabit 10.000 değil; son günlerine göre kademeli uyarlanır.'),
       hasDemo ? h('p', { class: 'warnline', id: 'demo-banner' }, 'DEMO VERİ: grafikteki geçmiş günler örnek amaçlı üretilmiştir, gerçek ölçüm değildir.') : null,
-      h('section', { class: 'tile' },
-        h('div', { class: 'row' }, h('h3', {}, icon('i-walk'), 'Bugün'), h('span', { class: 'big', id: 'steps-today' }, fmt(todaySteps, 0))),
-        h('div', { class: 'meter', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': g.goal, 'aria-valuenow': todaySteps }, h('span', { dataset: { w: Math.min(100, Math.round((todaySteps / g.goal) * 100)) } })),
-        h('p', { class: 'sub', id: 'goal-basis' }, `Hedef ${fmt(g.goal, 0)} adım · ${g.basis}`),
+      h('section', { class: 'card' },
+        h('div', { class: 'kpi' },
+          h('div', { class: 'head-stat', role: 'progressbar', 'aria-label': 'Günlük adım hedefi', 'aria-valuemin': 0, 'aria-valuemax': g.goal, 'aria-valuenow': todaySteps }, ring(pct, { size: 76, stroke: 8, cls: 'teal' }), h('span', {}, `%${pct}`)),
+          h('div', { class: 'grow' }, h('small', { class: 'muted' }, 'Bugün'), h('span', { class: 'big', id: 'steps-today' }, fmt(todaySteps, 0)), h('small', { class: 'muted' }, `hedef ${fmt(g.goal, 0)} adım`))),
+        h('p', { class: 'small muted', id: 'goal-basis' }, g.basis),
         h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); const v = Number(input.value); if (Number.isFinite(v) && v >= 0) { setDay(today, v, 'manuel'); render(); } } },
           input, h('button', { class: 'btn primary small', type: 'submit', id: 'btn-steps-save' }, 'Kaydet')),
         h('p', { class: 'muted small' }, SOURCES.manuel.note)),
@@ -73,13 +75,14 @@ export async function createActivityScreen() {
     const W = 320, H = 140, pad = 18, bw = (W - pad) / keys.length;
     const y = (v) => H - pad - (v / max) * (H - pad - 6);
     const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'step-chart', id: 'step-chart', role: 'img', 'aria-label': `Son ${range} gün adım grafiği, hedef ${goal}` },
+      s('line', { x1: pad, x2: W, y1: H - pad, y2: H - pad, class: 'grid-line' }),
       s('line', { x1: pad, x2: W, y1: y(goal), y2: y(goal), class: 'goal-line' }),
       s('text', { x: W - 2, y: y(goal) - 4, class: 'chart-label', 'text-anchor': 'end' }, `hedef ${fmt(goal, 0)}`),
       ...keys.map((k, i) => {
         const v = vals[i];
         if (!Number.isFinite(v)) return null;
         const src = days[k].source;
-        return s('rect', { x: pad + i * bw + bw * 0.15, width: bw * 0.7, y: y(v), height: Math.max(1, H - pad - y(v)), rx: 2, class: `bar ${src === 'demo' ? 'demo' : v >= goal ? 'met' : ''}` },
+        return s('rect', { x: pad + i * bw + bw * 0.15, width: bw * 0.7, y: y(v), height: Math.max(1, H - pad - y(v)), rx: 4, class: `bar ${src === 'demo' ? 'demo' : v >= goal ? 'met' : k === dayKey() ? 'today' : ''}` },
           s('title', {}, `${k}: ${v.toLocaleString('tr-TR')} adım${src === 'demo' ? ' (demo)' : ''}`));
       }),
       ...keys.map((k, i) => (range === 7 || i % 5 === 4 ? s('text', { x: pad + i * bw + bw / 2, y: H - 4, class: 'chart-label', 'text-anchor': 'middle' }, k.slice(8)) : null)));

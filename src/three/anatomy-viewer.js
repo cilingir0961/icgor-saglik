@@ -283,13 +283,18 @@ export class AnatomyViewer extends EventTarget {
   }
 
   /** Tüm vücudu (baştan ayağa) önden çerçeveler; "Bana Anlat" işaretlerinin hepsi görünsün diye. */
-  frameFullBody(animate = true) {
+  frameFullBody(animate = true, { top = 0, bottom = 0 } = {}) {
     this.isolate(null);
     this.select(null);
+    // top/bottom: üst ve alttaki arayüz öğelerinin kapladığı piksel; vücut kalan alana ortalanır
     const t = Math.tan((this.camera.fov * Math.PI) / 360);
-    const usableH = Math.max(0.5, 1 - (this.insets?.bottom ?? 0) / Math.max(1, this.height));
-    const d = Math.max(1.12 / (t * usableH), 0.6 / (t * this.camera.aspect));
-    this._moveTo(new THREE.Vector3(0, 0.88, 0), new THREE.Vector3(0, 0.92, d), animate);
+    const H = Math.max(1, this.height);
+    const usableH = Math.max(0.45, 1 - ((this.insets?.bottom ?? 0) + top + bottom) / H);
+    const d = Math.max(0.96 / (t * usableH), 0.56 / (t * this.camera.aspect));
+    const visible = 2 * d * t; // dünya biriminde görünen yükseklik
+    const shift = ((bottom - top) / 2 / H) * visible; // kamerayı aşağı kaydır → vücut yukarıda, boş alanın ortasında
+    const y = 0.88 - shift;
+    this._moveTo(new THREE.Vector3(0, y, 0), new THREE.Vector3(0, y + 0.04, d), animate);
   }
 
   _moveTo(target, position, animate) {

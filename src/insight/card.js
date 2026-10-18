@@ -49,6 +49,7 @@ export function openInsightCard(regionId, { store, onShow3D, from = 'insight' })
         h('div', { class: 'rel', 'aria-label': `Ölçüm güvenilirliği: ${rel.tr}` },
           h('span', { class: 'small muted' }, 'Ölçüm güvenilirliği'), h('span', { class: `rel-bar l${rel.level}` }, h('i'), h('i'), h('i')), h('span', { class: 'small' }, rel.tr)),
         h('p', { class: 'ihead' }, c.headline),
+        c.unreliable.length ? h('div', { class: 'notice iunrel', id: 'insight-unreliable' }, c.unreliable.map((x) => h('p', { class: 'small' }, x))) : null,
         c.findings.map((f) => h('section', { class: 'ifinding', dataset: { finding: f.id } },
           h('p', { class: 'iobs' }, f.text),
           h('p', { class: 'small muted' }, `Dayandığı ölçüm: ${f.basis}`),

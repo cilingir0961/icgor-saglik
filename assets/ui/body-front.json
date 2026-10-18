@@ -1,0 +1,38 @@
+{
+ "note": "Bölge işaretlerinin görsel üzerindeki yeri (0–1); scripts/render-ui-assets.mjs",
+ "view": "front",
+ "points": {
+  "bas-boyun": [
+   0.5,
+   0.1566
+  ],
+  "omuz-L": [
+   0.675,
+   0.1987
+  ],
+  "omuz-R": [
+   0.3259,
+   0.1986
+  ],
+  "govde": [
+   0.5,
+   0.341
+  ],
+  "kalca": [
+   0.5,
+   0.4713
+  ],
+  "diz-L": [
+   0.5784,
+   0.7426
+  ],
+  "diz-R": [
+   0.4245,
+   0.7426
+  ],
+  "denge": [
+   0.5,
+   0.9595
+  ]
+ }
+}

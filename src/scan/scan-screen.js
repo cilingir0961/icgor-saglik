@@ -20,6 +20,7 @@ import { Tilt } from './tilt.js';
 import { renderReport } from './report.js';
 import { h, fmt, icon } from './dom.js';
 import { summaryCard } from '../insight/insight-screen.js';
+import { pageHead } from '../ui/visuals.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -78,9 +79,21 @@ export async function createScanScreen() {
     const st = store.state;
     const p = st.profile;
     const last = st.scans.at(-1);
-    show(h('div', { class: 'scan-home' },
-      h('h2', {}, 'Kişisel duruş ve hareket taraması'),
+    const rowBtn = (id, ico, title, sub, onclick, disabled = false) => h('button', { class: 'card row-card scan-row', id, onclick, disabled },
+      h('span', { class: 'stat-ico' }, icon(ico)), h('span', { class: 'grow' }, h('strong', {}, title), h('small', {}, sub)), icon('i-chevron'));
+    show(h('div', { class: 'scan-home studio-page' },
+      pageHead('Tarama', 'Duruş ve hareket', 'Kameranla kısa bir farkındalık taraması · kamera ölçümü, yaklaşık'),
       disclaimer(),
+      h('section', { class: 'card hero' },
+        h('p', { class: 'eyebrow' }, last ? `Son tarama: ${new Date(last.date).toLocaleDateString('tr-TR')}` : 'İlk tarama'),
+        h('h2', { class: 'hero-title' }, 'Önden, yandan ve arkadan 3 adım'),
+        h('p', { class: 'sub' }, 'Omuz ve kalça seviyesi, baş ve gövde eğimi ölçülür. Yaklaşık 2 dakika sürer; görüntü kaydedilmez.'),
+        h('button', { class: 'btn primary block', id: 'btn-scan-posture', onclick: () => guard(startPosture) }, icon('i-body'), 'Duruş taramasını başlat')),
+      h('div', { class: 'scan-actions' },
+        rowBtn('btn-scan-moves', 'i-pulse', 'Hareket testleri', 'Kol kaldırma, çömelme, öne eğilme, tek ayak, boyun', () => guard(movementList)),
+        rowBtn('btn-scan-history', 'i-chart', `Geçmiş ve karşılaştırma (${st.scans.length})`, st.scans.length ? 'Aynı koşullardaki taramaları karşılaştır' : 'Henüz tarama yok', history, !st.scans.length),
+        last ? rowBtn('btn-scan-last', 'i-explain', 'Son raporu aç', 'Ölçümler, belirsizlik payları ve Bana Anlat özeti', () => report(last)) : null,
+        rowBtn('btn-scan-data', 'i-lock', 'Verilerim ve gizlilik', 'Saklananları gör, dışa aktar veya sil', dataControls)),
       h('div', { class: 'card-row' },
         h('div', { class: 'info-card' },
           h('h3', {}, 'Profil'),
@@ -97,13 +110,7 @@ export async function createScanScreen() {
           h('label', { class: 'row' }, 'Sesli yönlendirme', h('input', {
             type: 'checkbox', role: 'switch', id: 'chk-scan-voice', checked: st.settings.voice !== false,
             onchange: (e) => { store.setSettings({ voice: e.target.checked }); voice.setEnabled(e.target.checked); },
-          })))),
-      h('div', { class: 'scan-actions' },
-        h('button', { class: 'btn primary', id: 'btn-scan-posture', onclick: () => guard(startPosture) }, icon('i-body'), 'Duruş taraması (3 adım)'),
-        h('button', { class: 'btn', id: 'btn-scan-moves', onclick: () => guard(movementList) }, icon('i-pulse'), 'Hareket testleri'),
-        h('button', { class: 'btn', id: 'btn-scan-history', onclick: history, disabled: !st.scans.length }, `Geçmiş ve karşılaştırma (${st.scans.length})`),
-        last ? h('button', { class: 'btn ghost', onclick: () => report(last) }, 'Son raporu aç') : null,
-        h('button', { class: 'btn ghost', id: 'btn-scan-data', onclick: dataControls }, 'Verilerim ve gizlilik'))), 'home');
+          }))))), 'home');
   }
 
   /** Rıza ve profil olmadan tarama başlamaz. */

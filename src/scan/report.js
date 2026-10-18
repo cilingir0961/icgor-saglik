@@ -7,6 +7,7 @@ import { compareScans, windows } from '../analysis/compare.js';
 import { MOVEMENT_TESTS } from '../analysis/movement.js';
 import { TOPICS, SEEK_CARE, CANNOT_DETECT, ERGONOMICS } from '../anatomy/posture-info.js';
 import { VIEWS } from '../analysis/quality.js';
+import { metricStatus } from '../analysis/validation-status.js';
 
 const MOVE_TOPIC = { 'kol-kaldirma': 'arm-raise', comelme: 'squat', 'one-egilme': 'forward-bend', 'tek-ayak': 'single-leg', boyun: 'neck', yuruyus: 'gait' };
 const LINKS = [[11, 12], [11, 23], [12, 24], [23, 24], [11, 13], [13, 15], [12, 14], [14, 16], [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [29, 31], [28, 30], [30, 32]];
@@ -57,11 +58,18 @@ function metricRow(m, onShow3D) {
     topic && onShow3D ? h('button', { class: 'btn small ghost', onclick: () => onShow3D(m.topic) }, 'İlgili anatomiyi 3B göster') : null);
 }
 
-function moveMetricRow(id, m) {
+function moveMetricRow(id, m, testId) {
+  const vs = metricStatus(`${testId}:${id}`);
+  if (vs.status === 'guvenilmez' && m.value != null) {
+    return h('div', { class: 'metric na', dataset: { metric: id, unreliable: 'true' } },
+      h('div', { class: 'metric-head' }, h('span', { class: 'name' }, m.tr), h('span', { class: 'tag exp' }, 'Güvenilir değil')),
+      h('div', { class: 'metric-value' }, 'Ölçüm güvenilir değil, tekrar deneyin.'),
+      h('p', { class: 'metric-text' }, vs.why));
+  }
   return h('div', { class: `metric ${m.value == null ? 'na' : ''}`, dataset: { metric: id } },
     h('div', { class: 'metric-head' },
       h('span', { class: 'name' }, m.tr),
-      m.experimental ? h('span', { class: 'tag exp' }, 'Deneysel') : null,
+      m.experimental || vs.status === 'deneysel' ? h('span', { class: 'tag exp', title: vs.why ?? 'Doğruluğu kanıtlanmadı' }, 'Deneysel') : null,
       h('span', { class: `grade ${gradeClass(m.grade)}` }, m.grade)),
     h('div', { class: 'metric-value' }, m.value == null ? 'ölçülemedi' : `${fmt(m.value, m.unit === '' ? 2 : 1)}${u(m.unit)} ± ${fmt(m.u, m.unit === '' ? 2 : 1)}${u(m.unit)}`),
     m.sense ? h('p', { class: 'metric-text' }, `Fark belirsizliği aşıyor: ${m.sense}. Bu bir gözlemdir, tanı değildir.`)
@@ -102,7 +110,7 @@ export function renderReport(scan, { history = [], onShow3D, onExport, twin } = 
       h('h3', {}, T?.tr ?? id),
       h('p', { class: 'sub' }, `${res.samples} kare${res.reps ? ` · tekrar: ${Object.values(res.reps).join(' / ')}` : ''}${res.stopped ? ' · kullanıcı durdurdu' : ''}`),
       res.issues?.length ? h('ul', { class: 'issues' }, res.issues.map((x) => h('li', {}, x))) : null,
-      h('div', { class: 'metrics' }, Object.entries(res.metrics).map(([k, m]) => moveMetricRow(k, m))),
+      h('div', { class: 'metrics' }, Object.entries(res.metrics).map(([k, m]) => moveMetricRow(k, m, id))),
       res.discomfort ? h('p', { class: 'notice' }, 'Bu test sırasında rahatsızlık bildirdiniz. Hareketi tekrarlamadan önce bir sağlık profesyoneline danışmanız önerilir.') : null,
       onShow3D && MOVE_TOPIC[id] ? h('button', { class: 'btn small ghost', onclick: () => onShow3D(MOVE_TOPIC[id]) }, 'İlgili anatomiyi 3B göster') : null));
   }

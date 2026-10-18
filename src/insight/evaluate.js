@@ -10,6 +10,7 @@
 
 import { BODY_REGIONS, POSTURE_MAP, MOVEMENT_MAP, COACH_MAP } from './regions.js';
 import { comparable } from '../analysis/compare.js';
+import { metricStatus, STATUS_TEXT } from '../analysis/validation-status.js';
 
 const DAY = 86400000;
 const K = 2; // karar çarpanı (posture.js K_DECIDE ile aynı)
@@ -58,10 +59,12 @@ function sidesOf(metrics, asymId) {
 
 function item({ source, id, test, view, regions, kind, m, scan, conditions, flagged, sign, sense, discomfort = false, sides = null }) {
   const measured = m.value != null && m.u != null;
-  const reliable = measured && m.grade !== 'düşük' && m.grade !== 'ölçülemedi';
+  const vs = metricStatus(id);
+  const reliable = measured && m.grade !== 'düşük' && m.grade !== 'ölçülemedi' && vs.status !== 'guvenilmez';
   return {
+    unreliable: measured && vs.status === 'guvenilmez' ? vs.why : null,
     source, id, test, view, regions, kind, tr: m.tr, unit: m.unit, value: m.value, u: m.u, grade: m.grade ?? null,
-    experimental: Boolean(m.experimental), measured, reliable, flagged: reliable ? flagged : null, sign, sense,
+    experimental: Boolean(m.experimental) || vs.status === 'deneysel', measured, reliable, flagged: reliable ? flagged : null, sign, sense,
     date: scan?.date ?? null, scanId: scan?.id ?? null, conditions: conditions ?? null, discomfort, sides,
     levelUnknown: conditions?.level === 'unknown',
   };
@@ -75,19 +78,23 @@ export function coachEvidence(log, now = new Date(), days = 30) {
     const map = COACH_MAP[r.kind];
     if (!map) continue;
     if (r.asym && r.kind === 'arm-raise') {
+      const vs = metricStatus(`coach:${r.kind}:asym`);
       out.push({
+        unreliable: vs.status === 'guvenilmez' ? vs.why : null,
         source: 'coach', id: `coach:${r.kind}:asym`, test: map.test, regions: map.regions, kind: 'asym', tr: 'Sağ–sol fark (kol kaldırma, kamera koçu)',
-        unit: '°', value: r.asym.value, u: r.asym.u, grade: 'orta', experimental: true, measured: true, reliable: true,
-        flagged: Math.abs(r.asym.value) > K * r.asym.u, sign: Math.sign(r.asym.value),
+        unit: '°', value: r.asym.value, u: r.asym.u, grade: 'orta', experimental: true, measured: true, reliable: vs.status !== 'guvenilmez',
+        flagged: vs.status === 'guvenilmez' ? null : Math.abs(r.asym.value) > K * r.asym.u, sign: Math.sign(r.asym.value),
         sense: r.asym.value > 0 ? `sol kol ${fmt(Math.abs(r.asym.value), 0)}° daha yükseğe kalktı` : `sağ kol ${fmt(Math.abs(r.asym.value), 0)}° daha yükseğe kalktı`,
         date: r.date, sides: r.sides ?? null, fps: r.fps ?? null, conditions: null,
       });
     }
     if (r.extreme?.value != null) {
+      const vs = metricStatus(`coach:${r.kind}:extreme`);
       out.push({
+        unreliable: vs.status === 'guvenilmez' ? vs.why : null,
         source: 'coach', id: `coach:${r.kind}:extreme`, test: map.test, regions: map.regions, kind: 'measure',
         tr: r.kind === 'arm-raise' ? 'En yüksek omuz açısı (kamera koçu)' : 'En küçük diz açısı (kamera koçu)', unit: '°',
-        value: r.extreme.value, u: r.extreme.u, grade: 'orta', experimental: true, measured: true, reliable: true, flagged: null, sign: 0, date: r.date, reps: r.reps,
+        value: r.extreme.value, u: r.extreme.u, grade: 'orta', experimental: true, measured: true, reliable: vs.status !== 'guvenilmez', flagged: null, sign: 0, date: r.date, reps: r.reps,
       });
     }
   }
@@ -121,7 +128,8 @@ export function evaluate(state, now = new Date()) {
     let status, reason;
     if (!reliable.length) {
       status = 'gri';
-      reason = items.some((e) => e.measured) ? 'Bu bölgede ölçüm yapıldı ama güvenilirliği düşüktü; sonuç gösterilmiyor.' : 'Bu bölge için henüz ölçüm yok.';
+      reason = items.some((e) => e.unreliable) ? `${STATUS_TEXT.guvenilmez} Bu bölgedeki ölçüm şu an güvenilir kabul edilmiyor; sonuç ve renk gösterilmiyor.`
+        : items.some((e) => e.measured) ? 'Bu bölgede ölçüm yapıldı ama güvenilirliği düşüktü; sonuç gösterilmiyor.' : 'Bu bölge için henüz ölçüm yok.';
     } else if (!flagged.length) {
       status = 'yesil';
       reason = 'Ölçülen değerlerde belirsizliği aşan belirgin bir fark görülmedi.';
@@ -143,7 +151,8 @@ export function evaluate(state, now = new Date()) {
         : flagged.every((f) => f.experimental) ? 'Fark yalnızca deneysel bir göstergede görüldü; tekrar ölçüm önerilir.'
           : 'Fark yalnızca bir ölçümde görüldü; tekrar ölçerek doğrulayalım.';
     }
-    regions[rid] = { id: rid, tr: R.tr, status, reason, items, flagged, anchor: R.anchor, side: R.side ?? null };
+    const unreliable = items.filter((e) => e.unreliable).map((e) => ({ tr: e.tr, test: e.test, why: e.unreliable }));
+    regions[rid] = { id: rid, tr: R.tr, status, reason, items, flagged, unreliable, anchor: R.anchor, side: R.side ?? null };
   }
   return { regions, latest, evidence: all, synthetic: Boolean(latest?.synthetic || latest?.source === 'demo') };
 }
@@ -153,12 +162,34 @@ export function regionHeadline(r) {
   if (r.status === 'gri') return r.reason;
   if (r.status === 'yesil') return `${r.tr}: ölçümde belirgin fark görülmedi.`;
   const f = [...r.flagged].sort((a, b) => (b.repeats ?? 0) - (a.repeats ?? 0))[0];
-  return `${r.tr}: ${observationText(f)}`;
+  return `${r.tr}: ${observationText(f, r.side)}`;
 }
 
 /** Bir bulgunun gözlem cümlesi: hangi harekette/duruşta, kaç derece/cm, ± belirsizlik. */
-export function observationText(f) {
+/** Hareket türüne göre "Sağ kolunu kaldırırken …" kalıbı (taraf: dokunulan bölgenin tarafı). */
+const ASYM_PHRASE = {
+  'kol-kaldirma:abductionAsym': { L: ['Sol kolunu kaldırırken', 'sağ koluna'], R: ['Sağ kolunu kaldırırken', 'sol koluna'] },
+  'boyun:latAsym': { L: ['Başını sola yatırırken', 'sağa yatırmaya'], R: ['Başını sağa yatırırken', 'sola yatırmaya'] },
+  'coach:arm-raise:asym': { L: ['Sol kolunu kaldırırken', 'sağ koluna'], R: ['Sağ kolunu kaldırırken', 'sol koluna'] },
+};
+
+/**
+ * @param {object} f bulgu
+ * @param {'L'|'R'|null} side kartın tarafı (sol/sağ bölge). Taraf yoksa, daha az hareket eden taraf anlatılır.
+ */
+export function observationText(f, side = null) {
   const u = `± ${fmt(f.u)}${f.unit === '°' ? '°' : ` ${f.unit}`}`;
+  const P = ASYM_PHRASE[f.id];
+  if (f.kind === 'asym' && P && f.value != null) {
+    const s = f.sides, d = Math.abs(f.value);
+    const lower = f.value > 0 ? 'R' : 'L'; // fark = sol − sağ; pozitif → sağ taraf daha az
+    const S = side ?? lower;
+    const [verb, other] = P[S];
+    const less = S === lower;
+    const vals = s && s.L.value != null && s.R.value != null
+      ? (S === 'L' ? `sol ${fmt(s.L.value, 0)}°, sağ ${fmt(s.R.value, 0)}°` : `sağ ${fmt(s.R.value, 0)}°, sol ${fmt(s.L.value, 0)}°`) : null;
+    return `${verb} ${other} göre ${fmt(d, 0)}° daha ${less ? 'az' : 'fazla'} hareket ölçüldü (${vals ? `${vals}; ` : ''}fark ${u}).`;
+  }
   if (f.kind === 'asym') {
     const s = f.sides;
     const detail = s && s.L.value != null && s.R.value != null ? ` (sol ${fmt(s.L.value, 0)}°, sağ ${fmt(s.R.value, 0)}°)` : '';

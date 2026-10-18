@@ -5,6 +5,7 @@ import { getStore } from '../scan/store.js';
 import { h, icon } from '../scan/dom.js';
 import { consentForm } from '../ui/consent.js';
 import { SHARE_CATEGORIES } from '../assistant/context.js';
+import { pageHead } from '../ui/visuals.js';
 
 export async function createDataScreen() {
   const store = getStore();
@@ -14,8 +15,8 @@ export async function createDataScreen() {
     const st = store.state;
     const share = Object.entries(st.chat?.share ?? {}).filter(([, v]) => v).map(([k]) => SHARE_CATEGORIES[k]?.tr ?? k);
     const del = (label, fn, id) => h('button', { class: 'btn small ghost', id, onclick: () => { if (confirm(`${label} bu cihazdan silinsin mi?`)) { fn(); render(); } } }, label);
-    page.replaceChildren(h('div', {},
-      h('h2', {}, 'Verilerim ve gizlilik'),
+    page.replaceChildren(h('div', { class: 'studio-page' },
+      pageHead('Gizlilik', 'Verilerim', 'Her şey bu cihazda; neyin saklandığını görür, dışa aktarır veya silersin.'),
       h('section', { class: 'tile' },
         h('h3', {}, icon('i-lock'), 'Bu cihazda saklananlar'),
         h('ul', { class: 'plain small', id: 'data-summary' },

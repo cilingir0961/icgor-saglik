@@ -1,8 +1,8 @@
 // Çevrimdışı önbellek (PWA). Yalnızca aynı kökenli dosyalar; ağa veri gönderilmez.
 // Modeller ve kütüphaneler sürüm adıyla değişmez kabul edilir → önce önbellek.
 // HTML/JS/CSS → önce ağ (güncellemeler hemen gelsin), ağ yoksa önbellek.
-const VERSION = 'icgor-v0.6.0';
-const SHELL = ['./', 'index.html', 'src/ui/styles.css', 'icon.svg', 'manifest.webmanifest', 'assets/anatomy/manifest.json'];
+const VERSION = 'icgor-v0.8.0';
+const SHELL = ['./', 'index.html', 'src/ui/styles.css', 'src/ui/studio.css', 'icon.svg', 'manifest.webmanifest', 'assets/anatomy/manifest.json'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

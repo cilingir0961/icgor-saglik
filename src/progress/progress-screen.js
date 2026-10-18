@@ -6,6 +6,7 @@ import { h, s, icon, fmt } from '../scan/dom.js';
 import { stepPeriod, weeklyWorkouts, coachChanges } from './metrics.js';
 import { compareScans, windows } from '../analysis/compare.js';
 import { adaptiveGoal, lastDays } from '../activity/steps.js';
+import { pageHead, ring } from '../ui/visuals.js';
 
 const STATUS = { yok: ['Yetersiz veri', ''], belirsiz: ['Belirsiz', 'info'], artis: ['Artış', 'ok'], azalis: ['Azalış', ''], olasi: ['Olası değişim', 'ok'] };
 
@@ -36,14 +37,17 @@ export async function createProgressScreen() {
     }
     const lastH = st.trainer?.history?.at(-1);
 
-    page.replaceChildren(h('div', {},
-      h('h2', {}, 'Gelişim'),
-      h('p', { class: 'sub' }, 'Değişimler ölçüm belirsizliğiyle birlikte gösterilir. Belirsizlik içindeki farklar “Belirsiz” olarak işaretlenir; iyileşme veya kötüleşme diye yorumlanmaz.'),
+    const wk = weeks.at(-1).count, wkPlan = plan?.sessions.length ?? 0;
+    page.replaceChildren(h('div', { class: 'studio-page' },
+      pageHead('Gelişim', 'İlerlemen', 'Değişimler ölçüm belirsizliğiyle birlikte gösterilir; belirsizlik içindeki farklar iyileşme veya kötüleşme diye yorumlanmaz.'),
       h('div', { class: 'grid2' },
         h('section', { class: 'tile', id: 'pg-goals' },
-          h('h3', {}, 'Hedefler (bu hafta)'),
-          h('p', {}, `Antrenman: ${weeks.at(-1).count} / ${plan?.sessions.length ?? '—'}`),
-          h('p', {}, `Adım hedefine ulaşılan gün (son 7): ${met7} / 7`),
+          h('h3', {}, 'Bu hafta'),
+          h('div', { class: 'grid2 stats' },
+            h('div', { class: 'kpi' }, h('div', { class: 'head-stat' }, ring(wkPlan ? (wk / wkPlan) * 100 : 0, { size: 52, stroke: 6 }), h('span', {}, `${wk}/${wkPlan || '—'}`)),
+              h('div', { class: 'grow' }, h('strong', {}, 'Antrenman'), h('small', { class: 'muted' }, 'planlanan oturum'))),
+            h('div', { class: 'kpi' }, h('div', { class: 'head-stat' }, ring((met7 / 7) * 100, { size: 52, stroke: 6, cls: 'teal' }), h('span', {}, `${met7}/7`)),
+              h('div', { class: 'grow' }, h('strong', {}, 'Adım hedefi'), h('small', { class: 'muted' }, 'son 7 günde')))),
           lastH ? h('p', { class: 'sub' }, `Son antrenman hissi: ${{ kolay: 'kolay', uygun: 'uygun', zor: 'zor' }[lastH.feedback?.feeling] ?? '—'}${lastH.feedback?.pain?.length ? ' · ağrı bildirildi' : ''}`) : null),
         h('section', { class: 'tile', id: 'pg-workouts' },
           h('h3', {}, icon('i-dumbbell'), 'Haftalık antrenmanlar'),
@@ -73,12 +77,17 @@ export async function createProgressScreen() {
   }
 
   function weekChart(weeks, planned) {
+    if (!weeks.some((w) => w.count)) {
+      return h('div', { class: 'chart-empty', id: 'pg-workouts-empty' }, icon('i-chart'),
+        h('span', {}, 'Son 6 haftada kayıtlı antrenman yok. İlk oturumunu bitirdiğinde haftalık grafik burada oluşur.'));
+    }
     const W = 300, H = 110, pad = 16, bw = (W - pad) / weeks.length;
     const max = Math.max(planned, ...weeks.map((w) => w.count), 1);
     const y = (v) => H - pad - (v / max) * (H - pad - 8);
     return s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'step-chart', role: 'img', 'aria-label': 'Haftalık antrenman sayısı' },
+      s('line', { x1: pad, x2: W, y1: H - pad, y2: H - pad, class: 'grid-line' }),
       planned ? s('line', { x1: pad, x2: W, y1: y(planned), y2: y(planned), class: 'goal-line' }) : null,
-      ...weeks.map((w, i) => s('rect', { x: pad + i * bw + bw * 0.2, width: bw * 0.6, y: y(w.count), height: Math.max(1, H - pad - y(w.count)), rx: 2, class: `bar ${planned && w.count >= planned ? 'met' : ''}` }, s('title', {}, `${w.from.toLocaleDateString('tr-TR')} haftası: ${w.count}`))),
+      ...weeks.map((w, i) => s('rect', { x: pad + i * bw + bw * 0.2, width: bw * 0.6, y: y(w.count), height: Math.max(1, H - pad - y(w.count)), rx: 4, class: `bar ${planned && w.count >= planned ? 'met' : ''}` }, s('title', {}, `${w.from.toLocaleDateString('tr-TR')} haftası: ${w.count}`))),
       ...weeks.map((w, i) => s('text', { x: pad + i * bw + bw / 2, y: H - 3, class: 'chart-label', 'text-anchor': 'middle' }, w.from.toLocaleDateString('tr-TR', { day: 'numeric', month: 'numeric' }))));
   }
 
