@@ -6,6 +6,7 @@ import { chooseLod, browserLodEnv } from '../three/lod.js';
 import { ORGAN_INFO, SYSTEMS, LAYERS, organName, labelName } from '../anatomy/organ-info.js';
 import { MATERIALS } from '../three/palette.js';
 import { layoutLabels } from '../render/labels.js';
+import { MUSCLE_GUIDE } from '../anatomy/muscle-guide.js';
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -247,6 +248,17 @@ export async function createAnatomyScreen() {
       facts.append(li);
     }
     $('detail-facts-wrap').hidden = !(info?.facts?.length);
+    // Kas grubu: günlük dilde açıklama, egzersizler, Bana Anlat (ölçüm varsa)
+    const guide = MUSCLE_GUIDE[id];
+    $('detail-plain').hidden = !guide;
+    $('tab-egzersiz').hidden = !guide;
+    $('detail-insight').hidden = !guide;
+    if (guide) {
+      $('detail-plain-text').textContent = guide.plain;
+      $('detail-daily').textContent = guide.daily;
+      fillMuscleExtras(id, guide);
+    }
+    selectDetailTab('genel');
     const st = viewer.structures.get(id);
     $('detail-opacity').value = String(st?.opacity ?? viewer.layers[st?.layer ?? 'organs'].opacity);
     $('btn-detail-isolate').setAttribute('aria-pressed', String(viewer.isolated === id));
@@ -256,6 +268,73 @@ export async function createAnatomyScreen() {
     panel.scrollTop = 0;
     document.body.classList.add('panel-open');
   }
+  // Ayrıntı sekmeleri
+  function selectDetailTab(tab) {
+    for (const b of document.querySelectorAll('#detail-tabs [data-tab-id]')) b.setAttribute('aria-selected', String(b.dataset.tabId === tab));
+    const genel = tab === 'genel';
+    for (const el of [$('detail-location').parentElement, $('detail-function').parentElement]) el.hidden = !genel;
+    if (!genel) $('detail-facts-wrap').hidden = true;
+    else $('detail-facts-wrap').hidden = !($('detail-facts').childElementCount);
+    if (MUSCLE_GUIDE[viewer.selected]) $('detail-plain').hidden = !genel;
+    $('detail-exercises').hidden = genel;
+  }
+  for (const b of document.querySelectorAll('#detail-tabs [data-tab-id]')) b.addEventListener('click', () => selectDetailTab(b.dataset.tabId));
+
+  async function fillMuscleExtras(id, guide) {
+    const [{ EXERCISES, doseText }, { evaluate }, { STATUS }, { getStore }, { openInsightCard }] = await Promise.all([
+      import('../fitness/exercises.js'), import('../insight/evaluate.js'), import('../insight/regions.js'), import('../scan/store.js'), import('../insight/card.js')]);
+    if (viewer.selected !== id) return;
+    const list = $('detail-ex-list');
+    list.textContent = '';
+    for (const e of EXERCISES.filter((x) => x.muscles.includes(id) && x.level <= 2).slice(0, 6)) {
+      const li = document.createElement('li');
+      const b = document.createElement('strong'); b.textContent = e.tr;
+      const d = document.createElement('span'); d.className = 'small muted'; d.textContent = ` · ${doseText(e.dose)} · ${['', 'kolay', 'orta', 'zor'][e.level]}`;
+      const p = document.createElement('p'); p.className = 'small'; p.textContent = e.desc;
+      li.append(b, d, p);
+      list.append(li);
+    }
+    // En dikkat çekici ilgili bölge (yalnızca ölçülmüş veri)
+    const store = getStore();
+    const ev = evaluate(store.state);
+    const regs = guide.regions.map((r) => ev.regions[r]).sort((a, b) => STATUS[b.status].rank - STATUS[a.status].rank);
+    const top = regs[0];
+    $('detail-insight-status').textContent = top.status === 'gri' ? 'Bu bölge için henüz ölçümün yok.' : `${top.tr}: ${STATUS[top.status].tr.toLocaleLowerCase('tr')}`;
+    $('btn-detail-insight').onclick = () => openInsightCard(top.id, { store, from: 'anatomy' });
+  }
+
+  // ---------- Görünüm modu (Kaslar / İskelet / Organlar / Bana Anlat) ----------
+  const MODES = {
+    kaslar: { muscles: true, skeleton: true, organs: false, skin: false, vessels: false, nerves: false },
+    iskelet: { muscles: false, skeleton: true, organs: false, skin: true, vessels: false, nerves: false },
+    organlar: { muscles: false, skeleton: true, organs: true, skin: true, vessels: false, nerves: false },
+    anlat: { muscles: true, skeleton: true, organs: false, skin: false, vessels: false, nerves: false },
+  };
+  let mode = null;
+  /** Tüm vücut, üstteki köken çipi ve alttaki görünüm/mod çubukları dışında kalan alana çerçevelenir. */
+  function frameBody() {
+    const vp = viewport.getBoundingClientRect();
+    const sw = document.querySelector('#screen-anatomy .view-switch')?.getBoundingClientRect();
+    const bottom = sw && sw.height ? Math.max(0, vp.bottom - sw.top + 8) : 0;
+    viewer.frameFullBody(true, { top: 56, bottom });
+  }
+  function setMode(m, { regionId = null } = {}) {
+    if (!MODES[m]) return;
+    const prev = mode;
+    mode = m;
+    for (const b of document.querySelectorAll('#anatomy-modes [data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === m));
+    for (const [layer, on] of Object.entries(MODES[m])) {
+      if (viewer.layers[layer].visible !== on) viewer.setLayerVisible(layer, on);
+      if (on && layer === 'muscles') viewer.setLayerOpacity('muscles', 1);
+    }
+    if (m === 'anlat') setInsight(true, regionId);
+    else if (prev === 'anlat' || insightOn) setInsight(false);
+    if (m !== 'anlat' && (prev === null || prev === 'anlat')) frameBody(); // ilk açılışta ve Bana Anlat'tan dönünce
+    syncLayerRows?.();
+    document.body.dataset.anatomyMode = m;
+  }
+  for (const b of document.querySelectorAll('#anatomy-modes [data-mode]')) b.addEventListener('click', () => setMode(b.dataset.mode));
+
   $('btn-detail-focus').addEventListener('click', () => viewer.focus(viewer.selected));
   $('btn-detail-isolate').addEventListener('click', () => {
     const id = viewer.selected;
@@ -289,7 +368,9 @@ export async function createAnatomyScreen() {
     viewer.resetView();
     viewer.setAnimation({ heart: false, breath: false, motion: null });
     for (const s of viewer.structures.values()) { s.visible = !HIDDEN_BY_DEFAULT.has(s.id); s.opacity = null; }
-    viewer.setLayerVisible('organs', true);
+    const m = mode === 'anlat' ? 'kaslar' : mode ?? 'kaslar';
+    mode = null;
+    setMode(m);
     buildStructureList();
     for (const o of document.querySelectorAll('[data-view]')) o.setAttribute('aria-pressed', String(o.dataset.view === 'front'));
   });
@@ -414,7 +495,7 @@ export async function createAnatomyScreen() {
     markerBox.hidden = !on;
     document.body.classList.toggle('insight-on', on);
     if (!on) { markerBox.textContent = ''; markers = []; viewer.setHighlight(null); return; }
-    viewer.frameFullBody();
+    frameBody();
     insightMod ??= await Promise.all([import('../insight/evaluate.js'), import('../insight/card.js'), import('../insight/regions.js'), import('../scan/store.js')]);
     const [{ evaluate }, { openInsightCard }, { BODY_REGIONS, STATUS }, { getStore }] = insightMod;
     const store = getStore();
@@ -462,7 +543,7 @@ export async function createAnatomyScreen() {
     }
   }
   viewer.addEventListener('render', () => { if (insightOn) placeMarkers(); });
-  $('btn-insight').addEventListener('click', () => setInsight(!insightOn));
+  $('btn-insight').addEventListener('click', () => setMode(insightOn ? 'kaslar' : 'anlat'));
 
   await load();
   return {
@@ -471,7 +552,9 @@ export async function createAnatomyScreen() {
       viewer.setActive(true);
       applyTwin();
       const q = new URLSearchParams(location.hash.split('?')[1] ?? '');
-      if (q.has('anlat')) setInsight(true, q.get('anlat') || null);
+      if (q.has('anlat')) setMode('anlat', { regionId: q.get('anlat') || null });
+      else if (q.has('mod')) setMode(q.get('mod'));
+      else if (!mode && !location.hash.includes('ikiz')) setMode('kaslar');
     },
     deactivate() { viewer.setActive(false); $('layers-panel').hidden = true; },
   };

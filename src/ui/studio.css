@@ -192,3 +192,34 @@ svg.ring { width: 64px; height: 64px; stroke: none; }
 .stat .big { font-size: 22px; }
 .today, .insight { min-width: 0; }
 .today > *, .insight > * { min-width: 0; }
+
+/* ---------- 3B Anatomi (koyu, İçGör Studio) ---------- */
+#anatomy-viewport { background:
+  radial-gradient(70% 55% at 50% 38%, #1b3160 0%, #0e1a35 45%, #070d1c 100%); }
+.mode-bar { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 4; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  padding: 5px; border-radius: 20px; background: rgba(10, 19, 37, 0.82); border: 1px solid var(--border); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  max-width: 460px; margin-inline: auto; }
+.mode-bar button { display: grid; justify-items: center; gap: 3px; min-height: 52px; padding: 6px 2px; border: 0; border-radius: 15px; background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 700; }
+.mode-bar button svg { width: 21px; height: 21px; }
+.mode-bar button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.95); color: #0b1630; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+.view-switch { bottom: 82px; }
+.hint { bottom: 132px; }
+.float-tools { gap: 6px; }
+.tool { width: 44px; min-height: 44px; border-radius: 14px; background: rgba(10, 19, 37, 0.7); }
+.tool span { display: none; }
+.tool.insight-tool { display: none; } /* Bana Anlat mod çubuğunda */
+body.insight-on .view-switch { bottom: 82px; }
+/* Ayrıntı alt sayfası */
+.sheet { background: var(--surface-solid); border-radius: 24px 24px 0 0; }
+.sheet .tabs { display: flex; width: 100%; margin: 10px 0 2px; }
+.sheet .tabs button { flex: 1; min-height: 38px; }
+.sheet .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.detail-actions-insight { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0; }
+.detail-plain p { margin: 0 0 4px; line-height: 1.5; }
+@media (min-width: 900px) {
+  .mode-bar { left: 50%; right: auto; width: 440px; transform: translateX(-50%); }
+  body.panel-open .mode-bar { left: calc(50% - 196px); }
+  .tool span { display: block; }
+  .tool { width: 56px; min-height: 52px; }
+}
+#anatomy-hint { top: 58px; bottom: auto; padding: 0 64px 0 16px; text-align: left; }

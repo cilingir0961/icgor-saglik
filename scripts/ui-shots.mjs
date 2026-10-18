@@ -51,6 +51,8 @@ const SCREENS = [
   ['verilerim', '#/verilerim', "document.getElementById('data-summary')"],
   ['anatomi', '#/anatomi', "document.body.dataset.anatomyReady==='true'"],
   ['anatomi-anlat', '#/anatomi?anlat', "document.querySelectorAll('#insight-markers .imark').length===8"],
+  ['anatomi-detay', '#/anatomi?mod=kaslar', "document.body.dataset.anatomyReady==='true'", "(()=>{window.__icgor.viewer.select('mus-shoulder-arm');})()"],
+  ['anatomi-egzersiz', '#/anatomi?mod=kaslar', "!document.getElementById('detail-panel').hidden", "document.getElementById('tab-egzersiz').click()"],
 ];
 
 await mkdir(OUT, { recursive: true });
@@ -66,9 +68,10 @@ try {
   await page.waitFor("document.body.dataset.trainerState==='onboarding'", 30000);
   await page.eval("(()=>{for(const i of document.querySelectorAll('input[value=\"hayir\"]'))i.click();document.getElementById('btn-plan-create').click()})()");
   await page.waitFor("document.body.dataset.trainerState==='overview'", 10000);
-  for (const [name, hash, ready] of SCREENS) {
+  for (const [name, hash, ready, action] of SCREENS) {
     await page.eval(`location.hash = ${JSON.stringify(hash)}`);
     await page.waitFor(`!!(${ready})`, 90000).catch(() => console.log('hazır olmadı:', name));
+    if (action) { await sleep(800); await page.eval(action); }
     await sleep(name.startsWith('anatomi') ? 1500 : 500);
     await writeFile(join(OUT, `${DEV}-${name}.png`), await page.screenshot());
     console.log('ok', name);

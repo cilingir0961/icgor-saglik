@@ -90,7 +90,8 @@ async function openAnatomy(page, r, dev) {
   const t0 = Date.now();
   // Masaüstünde yüksek ayrıntı açıkça istenir (bu konteynerin az çekirdeği otomatik seçimi 'low'a düşürür);
   // mobil profillerde otomatik seçimin kullanıcı aracısından 'low' vermesi doğrulanır.
-  await page.goto(`${base}/index.html${dev.mobile ? '' : '?lod=high'}#/anatomi`);
+  // v0.8: varsayılan mod Kaslar; bu senaryolar organ görünümünü test eder → mod açıkça seçilir
+  await page.goto(`${base}/index.html${dev.mobile ? '' : '?lod=high'}#/anatomi?mod=organlar`);
   await page.waitFor("document.body.dataset.anatomyReady==='true'", 90000);
   r.metrics.loadMs = Date.now() - t0;
   await sleep(600);
@@ -839,6 +840,41 @@ const insight3d = async (page, r, dev) => {
   if (!(await page.eval("document.getElementById('insight-markers').hidden"))) r.problems.push('Bana Anlat kapatılamadı');
 };
 
+// ---------------- v0.8: 3B anatomi modları ve kas ayrıntısı ----------------
+const anatomyModes = async (page, r, dev) => {
+  await page.goto(`${base}/index.html?nosw${dev.mobile ? '' : '&lod=high'}#/anatomi`);
+  await page.waitFor("document.body.dataset.anatomyReady==='true'", 90000);
+  await page.waitFor("document.body.dataset.anatomyMode==='kaslar' && window.__icgor.viewer.layers.muscles.loaded===true", 60000);
+  const L = await page.eval("(()=>{const l=window.__icgor.viewer.layers;return {m:l.muscles.visible,o:l.organs.visible,s:l.skin.visible}})()");
+  if (!L.m || L.o || L.s) r.problems.push(`Kaslar modu katmanları yanlış: ${JSON.stringify(L)}`);
+  if (await page.eval("document.body.dataset.theme") !== 'dark') r.problems.push('3B ekran koyu temada değil');
+  await sleep(900);
+  await noOverflow(page, r);
+  await shot(page, r, 'kaslar');
+  // Kas seçimi → ayrıntı sayfası: günlük dil, egzersizler sekmesi, Bana Anlat bağlantısı
+  await page.eval("window.__icgor.viewer.select('mus-hip-thigh')");
+  await page.waitFor("!document.getElementById('detail-panel').hidden");
+  const plain = await page.eval("document.getElementById('detail-plain-text').textContent");
+  if (!/ayağa kalkmanın/.test(plain)) r.problems.push('kas açıklaması (günlük dil) yok');
+  await page.eval("document.getElementById('tab-egzersiz').click()");
+  await page.waitFor("document.querySelectorAll('#detail-ex-list li').length > 0", 10000);
+  const ex = await page.eval("[...document.querySelectorAll('#detail-ex-list li strong')].map(e=>e.textContent)");
+  r.metrics.exercises = ex;
+  if (!ex.some((x) => /Sandalyeden oturup kalkma|Kalça köprüsü/.test(x))) r.problems.push(`kalça-uyluk egzersizleri yanlış: ${ex}`);
+  if (!/ölçümün yok|görülmedi|Tekrar|Birden/.test(await page.eval("document.getElementById('detail-insight-status').textContent"))) r.problems.push('Bana Anlat durumu yok');
+  await shot(page, r, 'kas-detay', { visual: false });
+  await page.eval("document.querySelector('[data-close=\"detail-panel\"]').click()");
+  // Mod değişimi
+  await page.eval("document.querySelector('[data-mode=organlar]').click()");
+  await sleep(300);
+  if (!(await page.eval("window.__icgor.viewer.layers.organs.visible && !window.__icgor.viewer.layers.muscles.visible"))) r.problems.push('Organlar modu çalışmadı');
+  await page.eval("document.querySelector('[data-mode=anlat]').click()");
+  await page.waitFor("document.querySelectorAll('#insight-markers .imark').length === 8", 20000).catch(() => r.problems.push('Bana Anlat modu işaretleri yok'));
+  await page.eval("document.querySelector('[data-mode=kaslar]').click()");
+  await sleep(200);
+  if (!(await page.eval("document.getElementById('insight-markers').hidden"))) r.problems.push('Bana Anlat modundan çıkınca işaretler kaldı');
+};
+
 // ---------------- Koşucu ----------------
 
 async function main() {
@@ -864,6 +900,7 @@ async function main() {
       await scenario('goruntu-fantom', dev, imagingPhantom, browser);
       await scenario('kamera-izin-reddi', dev, cameraDenied, browser);
       await scenario('bugun', dev, today, browser);
+      await scenario('anatomi-modlar', dev, anatomyModes, browser);
     }
     await scenario('antrenman-akisi', 'iphone', trainerFlow, browser);
     await scenario('asistan-demo', 'iphone', assistantDemo, browser);
