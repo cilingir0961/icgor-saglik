@@ -126,6 +126,24 @@ sınır %0,5 (yazılım GPU'su deterministik; değişmeyen kodda fark %0,00; kas
 **Sınır:** Bu ortamda yalnızca Chromium var. iPhone profili ekran/dokunma/kullanıcı aracısı
 emülasyonudur, **gerçek Safari/WebKit değildir**. Gerçek cihaz testi yapılmadı.
 
+### Kalite A/B (`node scripts/ab-quality.mjs`, aynı görüş, yüksek LOD)
+Ölçüt: model piksellerinde yerel kontrast (3×3 Laplace mutlak ortalaması; yüzey ayrıntısının görünürlüğü).
+
+| Teknik | Kapalı | Açık | Fark | Maliyet | Karar |
+|---|---|---|---|---|---|
+| Pişirilmiş AO — organlar | 10,37 | 11,11 | **+%7,1** (bağırsak kıvrımları, organ sınırları belirgin) | çalışma anında 0 ek geçiş; +1 MB tepe rengi verisi (toplam 5,5 MB) | tutuldu |
+| Pişirilmiş AO — kaslar | 8,35 | 8,57 | +%2,6 | aynı | tutuldu |
+| Kas clearcoat | 8,19 | 8,57 | +%4,6 (ıslak doku parlaması) | ek shader terimi; yazılım GPU'sunda ölçülemedi | tutuldu, gerçek cihazda ölçülecek |
+
+Ekran görüntüleri: `.cache/ab/*-yanyana.png` (sol kapalı, sağ açık). Ekran-uzayı AO (SSAO) ve gölge
+haritaları **eklenmedi**: her karede ek tam ekran geçiş = mobilde ısınma/pil maliyeti; pişirilmiş AO aynı
+görsel kazancın çoğunu sıfır çalışma maliyetiyle verir. Not: yazılım GPU'sunda (SwiftShader) kare süresi
+GPU maliyetini temsil etmez; gerçek cihaz kare süresi ölçümü yapılmadı.
+
+### Bellek ve yükleme (Chromium emülasyonu, yerel sunucu)
+Düşük LOD ilk açılış: 115 668 üçgen, 35 çizim çağrısı; kas katmanı eklenince 155–169 bin üçgen, 52–53 çağrı.
+JS yığını ~17–22 MB. Kas katmanının tembel yüklenmesi ~160 ms (yerel ağ; mobil ağda daha uzun).
+
 ### Uzuv takibi (kolları kaldırılmış sahte figür, yer gerçeğiyle)
 Kas+iskelet katmanları ten rengiyle çizilip Rig ile pozlanır (sol omuz 57°, sol dirsek 34°, sağ omuz −40°).
 Bilek noktası hatası omuz genişliğinin %0,3–2,7'si; omuz açısı hatası 7–8°, sağ dirsek 9°, sol dirsek 16–17°
