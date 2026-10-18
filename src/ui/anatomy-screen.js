@@ -90,9 +90,21 @@ export async function createAnatomyScreen() {
     row.dataset.layer = id;
     rows.append(row);
   }
+  /** Panel denetimlerini görüntüleyici durumuyla eşitler (sıfırla vb. programatik değişikliklerden sonra). */
+  function syncLayerRows() {
+    for (const id of LAYER_IDS) {
+      const row = rows.querySelector(`[data-layer="${id}"]`);
+      const L = viewer.layers[id];
+      row.querySelector('input[type="checkbox"]').checked = L.visible;
+      row.querySelector('input[type="range"]').value = String(L.opacity);
+      row.querySelector('output').textContent = `%${Math.round(L.opacity * 100)}`;
+    }
+  }
+  viewer.addEventListener('layerchange', syncLayerRows);
   const layersBtn = $('btn-layers');
   layersBtn.addEventListener('click', () => {
     const open = $('layers-panel').hidden;
+    if (open) syncLayerRows();
     $('layers-panel').hidden = !open;
     $('anim-panel').hidden = true;
     layersBtn.setAttribute('aria-expanded', String(open));
@@ -309,8 +321,11 @@ export async function createAnatomyScreen() {
     const rail = document.querySelector('#screen-anatomy .float-tools, .float-tools')?.getBoundingClientRect();
     const cv = viewer.renderer.domElement.getBoundingClientRect();
     const usable = rail && rail.width && rail.left > cv.left ? Math.min(viewer.width, rail.left - cv.left - 4) : viewer.width;
+    // Alttaki görünüm seçicisinin (Ön/Sol/Arka/Sağ) üstünde kal
+    const sw = document.querySelector('.view-switch')?.getBoundingClientRect();
+    const usableH = sw && sw.height && sw.top > cv.top ? Math.min(viewer.height, sw.top - cv.top - 4) : viewer.height;
     const placed = layoutLabels(anchors, {
-      width: usable, height: viewer.height, lineHeight: narrow ? 28 : 27, margin: 8, gap: narrow ? 10 : 28, // etiket kutusu 24 px
+      width: usable, height: usableH, lineHeight: narrow ? 28 : 27, margin: 8, gap: narrow ? 10 : 28, // etiket kutusu 24 px
       measure: (t) => measureCtx.measureText(t).width + 18,
     });
     for (const l of placed) {

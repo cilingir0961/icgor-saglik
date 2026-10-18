@@ -21,3 +21,9 @@
 - Doğrulama: `npm test` (birim) ve `npm run test:browser` (Chromium: 3 cihaz profili, görsel regresyon,
   sahte kamerayla AR doğruluğu) her değişiklikten sonra geçmeli. Bilinçli görsel değişiklikte
   `npm run test:visual:update` ile temel görüntüler güncellenir ve nedeni commit mesajına yazılır.
+- "4D" yalnızca "zaman içinde değişen 3B animasyon" anlamında kullanılır; "5D" gibi pazarlama terimleri
+  kullanılmaz. Tüm animasyonlar "SİMÜLASYON — … (gerçek ölçüm değil)" rozetiyle gösterilir.
+- Yeni görsel teknikler körü körüne eklenmez: `scripts/ab-quality.mjs` ile açık/kapalı karşılaştırılır,
+  ölçülebilir kazanç ve mobil maliyet (ısınma, pil, bellek) `docs/ARCHITECTURE.md`'ye yazılır.
+- Ücretli hizmet, dış hesap, gerçek sağlık verisi yükleme, üretim dağıtımı ve App Store yayını için
+  önceden açık onay gerekir.

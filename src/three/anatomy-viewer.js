@@ -162,8 +162,13 @@ export class AnatomyViewer extends EventTarget {
       this.loadLayer(layer).catch((e) => this.dispatchEvent(new CustomEvent('layererror', { detail: { layer, error: e } })));
     }
     this._applyAll();
+    this.dispatchEvent(new CustomEvent('layerchange', { detail: { layer } }));
   }
-  setLayerOpacity(layer, opacity) { this.layers[layer].opacity = opacity; this._applyAll(); }
+  setLayerOpacity(layer, opacity) {
+    this.layers[layer].opacity = opacity;
+    this._applyAll();
+    this.dispatchEvent(new CustomEvent('layerchange', { detail: { layer } }));
+  }
   setStructureVisible(id, visible) { const s = this.structures.get(id); if (s) { s.visible = visible; this._applyAll(); } }
   setStructureOpacity(id, opacity) { const s = this.structures.get(id); if (s) { s.opacity = opacity; this._applyAll(); } }
 
