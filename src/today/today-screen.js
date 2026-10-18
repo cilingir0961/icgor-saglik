@@ -2,24 +2,18 @@
 // Tüm veriler yerel depodan; tıbbi değerlendirme içermez. Görseller projenin 3B atlasından (assets/ui).
 
 import { getStore } from '../scan/store.js';
-import { h, s, icon, fmt } from '../scan/dom.js';
+import { h, icon, fmt } from '../scan/dom.js';
 import { dayKey, adaptiveGoal, weekStats, lastDays } from '../activity/steps.js';
 import { BY_ID, doseText } from '../fitness/exercises.js';
 import { DAY_NAMES } from '../fitness/planner.js';
 import { evaluate, regionHeadline } from '../insight/evaluate.js';
 import { STATUS } from '../insight/regions.js';
-import { exerciseImage, BODY_FRONT, img } from '../ui/visuals.js';
+import { exerciseImage, BODY_FRONT, img, ring } from '../ui/visuals.js';
+
+export { ring };
 
 const QUICK = ['Evde ekipmansız 20 dakikalık program hazırla', 'Omuzlarım öne doğru duruyor, hangi hareketleri yapabilirim?', 'Uyku düzenim için ne önerirsin?'];
 const SHORT_DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
-
-/** İlerleme halkası (SVG; CSP uyumlu: öznitelikler, satır içi stil yok). */
-export function ring(pct, { size = 64, stroke = 7, cls = '' } = {}) {
-  const r = (size - stroke) / 2, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct));
-  return s('svg', { viewBox: `0 0 ${size} ${size}`, class: `ring ${cls}`, width: size, height: size, 'aria-hidden': 'true' },
-    s('circle', { cx: size / 2, cy: size / 2, r, class: 'ring-track', 'stroke-width': stroke }),
-    s('circle', { cx: size / 2, cy: size / 2, r, class: 'ring-value', 'stroke-width': stroke, 'stroke-dasharray': `${(c * p) / 100} ${c}`, transform: `rotate(-90 ${size / 2} ${size / 2})` }));
-}
 
 function greeting(d) {
   const hh = d.getHours();

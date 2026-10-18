@@ -7,6 +7,7 @@ import { STORE_KEY } from '../src/scan/store.js';
 
 const OUT = resolve(process.argv[2] ?? '.cache/ui-shots');
 const DEV = process.argv[3] ?? 'iphone';
+const ONLY = process.argv[4] ? new Set(process.argv[4].split(',')) : null;
 const DEVICES = {
   iphone: { width: 390, height: 844, dpr: 3, mobile: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' },
   android: { width: 412, height: 915, dpr: 2.625, mobile: true },
@@ -42,6 +43,7 @@ function demoState() {
 const SCREENS = [
   ['bugun', '#/bugun', "document.getElementById('today-workout')"],
   ['antrenman', '#/antrenman', "document.body.dataset.trainerState==='overview'"],
+  ['antrenman-oturum', '#/antrenman?oturum=0', "document.body.dataset.trainerState==='session'"],
   ['asistan', '#/asistan', "document.getElementById('ai-badge')"],
   ['tarama', '#/tarama', "document.body.dataset.scanState==='home'"],
   ['bana-anlat', '#/anlat', "document.getElementById('insight-regions')"],
@@ -69,6 +71,7 @@ try {
   await page.eval("(()=>{for(const i of document.querySelectorAll('input[value=\"hayir\"]'))i.click();document.getElementById('btn-plan-create').click()})()");
   await page.waitFor("document.body.dataset.trainerState==='overview'", 10000);
   for (const [name, hash, ready, action] of SCREENS) {
+    if (ONLY && !ONLY.has(name)) continue;
     await page.eval(`location.hash = ${JSON.stringify(hash)}`);
     await page.waitFor(`!!(${ready})`, 90000).catch(() => console.log('hazır olmadı:', name));
     if (action) { await sleep(800); await page.eval(action); }

@@ -1,6 +1,8 @@
 // Arayüz görselleri (assets/ui, projenin lisanslı 3B atlasından üretilmiş renderlar; CC BY-SA 4.0, assets/ui/LICENSE.md).
 // Fotoğraf yok; egzersiz pozları basitleştirilmiş SİMÜLASYON.
 
+import { s } from '../scan/dom.js';
+
 const BASE = 'assets/ui/';
 
 /** Egzersize uygun görsel: önce hareket pozu, yoksa ana kas grubu vurgusu. */
@@ -34,4 +36,12 @@ export function img(src, alt, { w = 120, h = 120, cls = '' } = {}) {
   el.src = src; el.alt = alt; el.width = w; el.height = h; el.loading = 'lazy'; el.decoding = 'async';
   if (cls) el.className = cls;
   return el;
+}
+
+/** İlerleme halkası (SVG; CSP uyumlu: öznitelikler, satır içi stil yok). */
+export function ring(pct, { size = 64, stroke = 7, cls = '' } = {}) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct));
+  return s('svg', { viewBox: `0 0 ${size} ${size}`, class: `ring ${cls}`, width: size, height: size, 'aria-hidden': 'true' },
+    s('circle', { cx: size / 2, cy: size / 2, r, class: 'ring-track', 'stroke-width': stroke }),
+    p > 0 ? s('circle', { cx: size / 2, cy: size / 2, r, class: 'ring-value', 'stroke-width': stroke, 'stroke-dasharray': `${(c * p) / 100} ${c}`, transform: `rotate(-90 ${size / 2} ${size / 2})` }) : null);
 }

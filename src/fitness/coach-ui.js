@@ -5,9 +5,9 @@
 import { CameraSource, describeCameraError } from '../camera/camera-source.js';
 import { videoToDisplay } from '../camera/ar-fit.js';
 import { Voice } from '../scan/voice.js';
-import { h } from '../scan/dom.js';
-import { createCoach, COACH_KINDS } from './coach.js';
-import { isUnreliable } from '../analysis/validation-status.js';
+import { h, s as svg } from '../scan/dom.js';
+import { createCoach, COACH_KINDS, MIN_FPS } from './coach.js';
+import { isUnreliable, metricStatus } from '../analysis/validation-status.js';
 
 const LINKS = [[11, 12], [11, 23], [12, 24], [23, 24], [11, 13], [13, 15], [12, 14], [14, 16], [23, 25], [25, 27], [24, 26], [26, 28]];
 const NUM_TR = ['sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz', 'on', 'on bir', 'on iki', 'on üç', 'on dört', 'on beş', 'on altı', 'on yedi', 'on sekiz', 'on dokuz', 'yirmi'];
@@ -28,22 +28,38 @@ export function openCoach({ exercise, onClose }) {
   const octx = overlay.getContext('2d');
   const camera = new CameraSource(video);
   const $count = h('div', { class: 'coach-count', id: 'coach-count', 'aria-live': 'polite' }, '0');
-  const $msg = h('p', { class: 'coach-msg', id: 'coach-msg' }, K.setup);
-  const $angle = h('p', { class: 'coach-angle', id: 'coach-angle' }, '');
+  const $msg = h('p', { class: 'coach-msg', id: 'coach-msg', role: 'status' }, K.setup);
+  const $angle = h('p', { class: 'coach-angle', id: 'coach-angle' }, '—');
+  const angleSub = isUnreliable(`coach:${exercise.camera}:extreme`) ? 'şu an güvenilir değil' : metricStatus(`coach:${exercise.camera}:extreme`).status === 'deneysel' ? '±6° · deneysel' : '±6° · görüntü düzleminde';
+  const $angleSub = h('small', {}, angleSub);
+  const $tempo = h('strong', { id: 'coach-tempo' }, '—');
+  const $track = h('strong', { id: 'coach-track', class: 'track off' }, 'Bekleniyor');
+  // Halka sayaç: hedef tekrar varsa doluluk; yoksa yalnızca sayı (ilerleme iddiası yok)
+  const R = 50, C = 2 * Math.PI * R;
+  const $ringVal = svg('circle', { cx: 60, cy: 60, r: R, class: 'ring-value', 'stroke-width': 9, 'stroke-dasharray': `0 ${C}`, transform: 'rotate(-90 60 60)' });
+  const setRing = (n) => { $ringVal.setAttribute('stroke-dasharray', `${target ? (C * Math.min(1, n / target)) : 0} ${C}`); };
+  const guide = h('div', { class: 'coach-guide show', 'aria-hidden': 'true' }, h('span', {}, 'Baştan ayağa bu çerçevenin içinde dur'));
   const panel = h('div', { class: 'coach-panel' });
   const root = h('div', { class: 'coach-layer', id: 'coach-layer', role: 'dialog', 'aria-label': `Kamera koçu: ${exercise.tr}` },
-    video, overlay,
-    h('div', { class: 'coach-hud' },
-      h('div', { class: 'coach-head' },
-        h('strong', {}, exercise.tr),
-        h('span', { class: 'badge warn' }, 'Deneysel · yaklaşık'),
-      ),
-      h('div', { class: 'coach-row' }, $count, h('div', {}, h('span', { class: 'coach-target' }, target ? `/ ${target} tekrar` : 'tekrar'), $angle)),
-      $msg),
-    panel);
+    video, overlay, guide,
+    h('div', { class: 'coach-top' },
+      h('button', { class: 'coach-x', 'aria-label': 'Koçu kapat', onclick: () => close(null) }, '✕'),
+      h('div', { class: 'grow' }, h('strong', {}, exercise.tr), h('span', { class: 'coach-tag' }, 'Deneysel · yaklaşık')),
+      h('div', { class: 'coach-ring', role: 'img', 'aria-label': target ? `Hedef ${target} tekrar` : 'Tekrar sayacı' },
+        svg('svg', { viewBox: '0 0 120 120', width: 120, height: 120, class: 'ring big', 'aria-hidden': 'true' },
+          svg('circle', { cx: 60, cy: 60, r: R, class: 'ring-track', 'stroke-width': 9 }), $ringVal),
+        h('span', { class: 'coach-ring-in' }, $count, h('small', { class: 'coach-target' }, target ? `/ ${target}` : 'tekrar')))),
+    h('div', { class: 'coach-bottom' },
+      $msg,
+      h('div', { class: 'coach-stats', role: 'group', 'aria-label': 'Canlı ölçüm' },
+        h('div', { class: 'cs wide' }, h('span', {}, `${K.joint[0].toUpperCase()}${K.joint.slice(1)} açısı`), $angle, $angleSub),
+        h('div', { class: 'cs' }, h('span', {}, 'Tempo'), $tempo, h('small', {}, 'sn / tekrar')),
+        h('div', { class: 'cs' }, h('span', {}, 'Takip'), $track, h('small', {}, 'görüş'))),
+      panel));
   document.body.append(root);
   document.body.classList.add('coach-open');
   let raf = 0, closed = false, coach = null, t0 = 0, lastDetect = 0, lastSeen = 0;
+  const repTimes = [], detTimes = [];
 
   const close = (result) => {
     if (closed) return;
@@ -107,10 +123,23 @@ export function openCoach({ exercise, onClose }) {
     dbg.reps = r.reps;
     dbg.angle = r.angle;
     $count.textContent = String(r.reps);
-    const shown = Object.entries(r.angle).filter(([, v]) => v != null).map(([S, v]) => `${S === 'L' ? 'Sol' : 'Sağ'} ${K.joint} ${Math.round(v)}°`);
+    setRing(r.reps);
+    // Takip göstergesi: işlenen kare hızı + gerekli eklemlerin görünmesi (ölçüm doğruluğu değil, görüş durumu)
+    detTimes.push(now); while (detTimes.length && now - detTimes[0] > 2000) detTimes.shift();
+    const fps = detTimes.length > 1 ? (detTimes.length - 1) / ((now - detTimes[0]) / 1000) : 0;
+    const trk = !r.visible ? ['off', 'Görünmüyor'] : fps < MIN_FPS ? ['weak', 'Yavaş'] : ['ok', 'İyi'];
+    $track.className = `track ${trk[0]}`; $track.textContent = trk[1];
+    guide.classList.toggle('show', !r.visible);
+    const shown = Object.entries(r.angle).filter(([, v]) => v != null).map(([S, v]) => `${S === 'L' ? 'Sol' : 'Sağ'} ${Math.round(v)}°`);
+    // Takip yavaşken açı ve tempo gösterilmez: seyrek örneklemede tepe noktaları kaçar (coach.js MIN_FPS)
+    const slow = trk[0] === 'weak';
     $angle.textContent = !shown.length ? 'Eklemler görünmüyor'
-      : isUnreliable(`coach:${exercise.camera}:extreme`) ? 'Tekrarlar sayılıyor · açı ölçümü şu an güvenilir değil'
-        : `${shown.join(' · ')} (±6°, görüntü düzleminde)`;
+      : isUnreliable(`coach:${exercise.camera}:extreme`) ? 'Yalnızca tekrar sayılıyor'
+        : slow ? '—' : shown.join(' · ');
+    $angleSub.textContent = slow ? 'takip yavaş · güvenilir değil' : angleSub;
+    if (r.newRep) repTimes.push(now);
+    const nT = Math.min(repTimes.length, 4);
+    $tempo.textContent = slow || nT < 2 ? '—' : ((repTimes.at(-1) - repTimes.at(-nT)) / 1000 / (nT - 1)).toFixed(1).replace('.', ',');
     if (r.newRep) {
       voice.say(NUM_TR[r.reps] ?? String(r.reps), { force: true, interrupt: true });
       if (target && r.reps >= target) {
@@ -150,11 +179,13 @@ export function openCoach({ exercise, onClose }) {
     voice.say(`${s.reps} tekrar sayıldı.`, { force: true, interrupt: true });
     root.classList.add('done');
     $count.textContent = String(s.reps);
-    $angle.textContent = '';
+    setRing(s.reps);
+    guide.classList.remove('show');
     $msg.textContent = s.reliable ? 'Ölçüm güvenilirlik kapısını geçti.' : 'Ölçüm güvenilirliği yetersiz: yalnızca yaklaşık tekrar sayısı gösteriliyor, açı/tempo yorumu yapılmıyor.';
     setPanel(
       h('div', { class: 'coach-summary', id: 'coach-summary' },
         h('h3', {}, `${s.reps} tekrar ${s.reliable ? '' : '(yaklaşık)'}`),
+        h('p', { class: `coach-rel ${s.reliable ? 'ok' : 'weak'}` }, s.reliable ? 'Güvenilirlik kapısı geçti · deneysel' : 'Ölçüm güvenilir değil, tekrar deneyin'),
         s.reliable
           ? (s.angleUnreliable ? h('p', { class: 'notice', id: 'coach-angle-note' }, s.angleNote) : h('ul', {}, s.observations.map((o) => h('li', {}, o))))
           : h('ul', { class: 'warnlist' }, s.reasons.map((o) => h('li', {}, o))),
