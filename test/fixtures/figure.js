@@ -47,7 +47,14 @@ export async function createFigure({ width = 640, height = 480, layers = ['muscl
     o.matrixAutoUpdate = false;
     const seg = o.geometry.userData?.segment;
     const restParent = o.parent.matrixWorld.clone();
-    meshes.push({ o, seg: SEGMENTS.includes(seg) ? seg : 'trunk', base: o.matrix.clone(), restParent, restParentInv: restParent.clone().invert(), pos0: o.geometry.attributes.position.array.slice() });
+    // Nicemlenmiş konumları Float32'ye çöz: deformasyon nicemleme aralığının dışına taşabilir
+    const qa = o.geometry.attributes.position;
+    if (!(qa.array instanceof Float32Array) || qa.normalized) {
+      const f = new Float32Array(qa.count * 3);
+      for (let i = 0; i < qa.count; i++) { f[i * 3] = qa.getX(i); f[i * 3 + 1] = qa.getY(i); f[i * 3 + 2] = qa.getZ(i); }
+      o.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3));
+    }
+    meshes.push({ o, seg: SEGMENTS.includes(seg) ? seg : 'trunk', base: o.matrix.clone(), restParent, restParentInv: restParent.clone().invert(), pos0: o.geometry.attributes.position.clone() });
   });
   const J = manifest.joints;
   const v3 = (p) => new THREE.Vector3(...p);
@@ -80,17 +87,17 @@ export async function createFigure({ width = 640, height = 480, layers = ['muscl
       m.o.matrixWorldNeedsUpdate = true;
       if (m.seg === 'trunk') {
         // Baş-öne: boyun tabanından 12 cm yukarıda tam kayma (yerel koordinatlar dünya ile aynı ölçek/eksende)
+        // Konumlar nicemlenmiş/normalize olabilir (meshopt): get/set ile çözülmüş değerler kullanılır
         const pos = m.o.geometry.attributes.position;
-        const a = pos.array;
         const w = new THREE.Vector3();
         const toWorld = m.restParent.clone().multiply(m.base);
         const toLocal = toWorld.clone().invert();
-        for (let i = 0; i < a.length; i += 3) {
-          w.set(m.pos0[i], m.pos0[i + 1], m.pos0[i + 2]).applyMatrix4(toWorld);
+        for (let i = 0; i < pos.count; i++) {
+          w.fromBufferAttribute(m.pos0, i).applyMatrix4(toWorld);
           const k = Math.min(1, Math.max(0, (w.y - neckY) / 0.12));
           w.z += hf * k * k * (3 - 2 * k);
           w.applyMatrix4(toLocal);
-          a[i] = w.x; a[i + 1] = w.y; a[i + 2] = w.z;
+          pos.setXYZ(i, w.x, w.y, w.z);
         }
         pos.needsUpdate = true;
         m.o.geometry.computeBoundingSphere();
