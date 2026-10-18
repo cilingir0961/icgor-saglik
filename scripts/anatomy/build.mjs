@@ -1,4 +1,4 @@
-// Anatomi varlık hattı: kaynak ağları indir → yapılara birleştir → HRA akciğerlerini kaydet →
+// Anatomi varlık hattı: kaynak ağları indir → yapılara birleştir → ikinci bir atlasla (HRA) çapraz doğrula →
 // iki ayrıntı düzeyinde (high/low) sadeleştir → meshopt sıkıştırmalı GLB + manifest yaz.
 //
 // Kullanım: node scripts/anatomy/build.mjs
@@ -14,6 +14,7 @@ import { SOURCES, loadBp3dMetadata, loadBp3dObj, loadHraUnitedMale } from './sou
 import { STRUCTURES, LANDMARKS, MATERIALS } from './catalog.mjs';
 import {
   parseObj, weld, mergeMeshes, transformMesh, simplify, simplifierReady, computeNormals, measure, triangleCount,
+  orientOutward,
 } from './mesh-ops.mjs';
 import { fitAffine, applyAffine, linearDeterminant } from '../../src/core/affine.js';
 
@@ -48,6 +49,7 @@ async function main() {
       return (c[rel] ?? c.is_a ?? c.part_of).filter((fj) => parts.has(fj));
     },
     name: (fj) => parts.get(fj).name,
+    find: (re) => [...parts.values()].filter((p) => re.test(p.name)).map((p) => p.fj_id),
   };
 
   // 1) Parça seçimi
@@ -58,13 +60,17 @@ async function main() {
   log(`${allFjs.length} BodyParts3D parçası indiriliyor/doğrulanıyor…`);
 
   const loaded = new Map();
-  let done = 0;
+  let done = 0, flippedCount = 0;
   await pool(allFjs, 8, async (fj) => {
     const { text, sha256, path } = await loadBp3dObj(parts.get(fj));
-    const mesh = weld(parseObj(text), 1e-3);
-    loaded.set(fj, { fj, name: ctx.name(fj), mesh, sha256, path, m: measure(mesh) });
+    // Bazı kaynak parçalar içe dönük sarımlı; arka yüz elemede kaybolmasınlar diye dışa çevrilir.
+    const { mesh, flipped } = orientOutward(weld(parseObj(text), 1e-3));
+    if (flipped) flippedCount++;
+    loaded.set(fj, { fj, name: ctx.name(fj), mesh, sha256, path, m: measure(mesh), flipped });
     if (++done % 100 === 0) log(`  ${done}/${allFjs.length}`);
   });
+
+  log(`  ${flippedCount} parçanın içe dönük sarımı düzeltildi`);
 
   // 2) Yapı başına parçalar; aynı adlı ve aynı yerdeki yinelenen temsilleri ayıkla
   const structParts = new Map();
@@ -72,7 +78,10 @@ async function main() {
     const list = [];
     for (const fj of fjs.sort()) {
       const p = loaded.get(fj);
-      const dup = list.find((q) => q.name === p.name && Math.hypot(...q.m.centroid.map((c, k) => c - p.m.centroid[k])) < 5);
+      const dist = (q) => Math.hypot(...q.m.centroid.map((c, k) => c - p.m.centroid[k]));
+      // Aynı yapının farklı temsilleri: aynı ad + yakın merkez, ya da ad farklı ama geometri neredeyse aynı.
+      const dup = list.find((q) => (q.name === p.name && dist(q) < 5)
+        || (dist(q) < 1 && Math.abs(triangleCount(q.mesh) - triangleCount(p.mesh)) <= 0.02 * triangleCount(p.mesh)));
       if (dup) {
         if (triangleCount(p.mesh) > triangleCount(dup.mesh)) list.splice(list.indexOf(dup), 1, p);
         continue;
@@ -132,18 +141,21 @@ async function main() {
   const det = linearDeterminant(reg.matrix);
   log(`Kayıt: ${pairs.length} işaret noktası, RMS kalıntı ${reg.rms.toFixed(1)} mm, det ${det.toFixed(3)}`);
 
-  for (const s of STRUCTURES.filter((x) => x.source === 'hra')) {
-    let mesh = transformMesh(hraSubtree(s.hraNode), (p) => applyAffine(reg.matrix, p));
-    if (det < 0) {
-      // Aynalama sarım yönünü ters çevirir; üçgenleri düzelt.
-      const idx = Uint32Array.from(mesh.indices);
-      for (let t = 0; t < idx.length; t += 3) [idx[t + 1], idx[t + 2]] = [idx[t + 2], idx[t + 1]];
-      mesh = { positions: mesh.positions, indices: idx };
-    }
-    mesh = weld(mesh, 1e-2);
-    structParts.set(s.id, [{ fj: null, name: s.en, mesh, cls: s.cls(s.en), m: measure(mesh), hraNode: s.hraNode }]);
-    log(`  ${s.id}: HRA ${s.hraNode}, ${triangleCount(mesh)} üçgen`);
+  // Bağımsız çapraz doğrulama: HRA akciğerleri kayıt sonrası BodyParts3D akciğerleriyle ne kadar örtüşüyor?
+  const crossCheck = [];
+  for (const s of STRUCTURES.filter((x) => x.hraNode)) {
+    const hra = measure(transformMesh(hraSubtree(s.hraNode), (p) => applyAffine(reg.matrix, p)));
+    const bp = measure(mergeMeshes(structParts.get(s.id).map((p) => p.mesh)));
+    const inter = [0, 1, 2].map((k) => Math.max(0, Math.min(hra.max[k], bp.max[k]) - Math.max(hra.min[k], bp.min[k])));
+    const vol = (b) => (b.max[0] - b.min[0]) * (b.max[1] - b.min[1]) * (b.max[2] - b.min[2]);
+    const iv = inter[0] * inter[1] * inter[2];
+    crossCheck.push({
+      id: s.id,
+      centroidDistanceMm: +Math.hypot(...hra.centroid.map((c, k) => c - bp.centroid[k])).toFixed(1),
+      boxIoU: +(iv / (vol(hra) + vol(bp) - iv)).toFixed(3),
+    });
   }
+  log('Çapraz doğrulama (HRA ↔ BodyParts3D akciğer):', crossCheck);
 
   // 4) Çıktı koordinatları: glTF eksenleri, deri kutusuna göre ortala (ayak tabanı y=0)
   const skinOut = transformMesh(mergeMeshes(structParts.get('skin').map((p) => p.mesh)), bpToGltf);
@@ -160,12 +172,13 @@ async function main() {
     bodyHeight: sb.max[1] - sb.min[1],
     disclaimer: 'Genel referans anatomi (atlas) modelidir; herhangi bir kişinin taraması değildir.',
     sources: SOURCES,
-    registration: {
+    validation: {
+      description: 'Bağımsız ikinci atlas (HRA, Visible Human Male) ile çapraz kontrol: 31 ortak yapının merkezlerinden afin kayıt, ardından akciğerlerin örtüşmesi.',
       method: 'Afin en küçük kareler (12 parametre), yapı ağırlık merkezleri',
       landmarks: pairs.length,
       rmsMm: +reg.rms.toFixed(2),
       maxMm: +Math.max(...reg.residuals).toFixed(2),
-      appliesTo: STRUCTURES.filter((s) => s.source === 'hra').map((s) => s.id),
+      lungs: crossCheck,
     },
     lods: {},
     structures: [],
@@ -197,20 +210,40 @@ async function main() {
     }
   }
 
+  // AR için eklem işaret noktaları: humerus başı (omuz) ve femur başı (kalça) — kemiğin en üst diliminin merkezi.
+  const allParts = [...structParts.values()].flat();
+  const jointCenter = (name, topFraction) => {
+    const p = allParts.find((q) => q.name === name);
+    if (!p) throw new Error(`eklem için parça yok: ${name}`);
+    const mesh = transformMesh(p.mesh, toOut);
+    const { min, max } = measure(mesh);
+    const cut = max[1] - (max[1] - min[1]) * topFraction;
+    let n = 0; const sum = [0, 0, 0];
+    for (let i = 0; i < mesh.positions.length; i += 3) {
+      if (mesh.positions[i + 1] >= cut) { sum[0] += mesh.positions[i]; sum[1] += mesh.positions[i + 1]; sum[2] += mesh.positions[i + 2]; n++; }
+    }
+    return sum.map((v) => +(v / n).toFixed(4));
+  };
+  manifest.landmarks = {
+    note: 'MediaPipe omuz/kalça noktalarına karşılık gelen yaklaşık eklem merkezleri (AR hizalaması için).',
+    leftShoulder: jointCenter('Left humerus', 0.08),
+    rightShoulder: jointCenter('Right humerus', 0.08),
+    leftHip: jointCenter('Left femur', 0.06),
+    rightHip: jointCenter('Right femur', 0.06),
+  };
+
   for (const s of STRUCTURES) {
     const full = mergeMeshes(structParts.get(s.id).map((p) => p.mesh));
     const m = measure(transformMesh(full, toOut));
     const r = (v) => v.map((x) => +x.toFixed(4));
     manifest.structures.push({
-      id: s.id, layer: s.layer, en: s.en, fma: s.fma, source: s.source ?? 'bodyparts3d',
+      id: s.id, layer: s.layer, en: s.en, fma: s.fma, source: 'bodyparts3d',
       parts: structParts.get(s.id).length,
       centroid: r(m.centroid), min: r(m.min), max: r(m.max),
       tris: Object.fromEntries(LODS.map((l) => [l, perLod[l].get(s.id).tris])),
       sourceTris: triangleCount(full),
     });
-    if (s.source !== 'hra') {
-      provenance.bodyparts3d.parts[s.id] = structParts.get(s.id).map((p) => ({ fj: p.fj, name: p.name, sha256: p.sha256 }));
-    }
+    provenance.bodyparts3d.parts[s.id] = structParts.get(s.id).map((p) => ({ fj: p.fj, name: p.name, sha256: p.sha256 }));
   }
 
   for (const lod of LODS) {
@@ -242,9 +275,7 @@ async function main() {
         scene.addChild(doc.createNode(s.id).setMesh(mesh).setExtras({ id: s.id, layer }));
         tris += data.tris;
       }
-      doc.getRoot().getAsset().copyright = layer === 'organs'
-        ? `${SOURCES.bodyparts3d.copyright}; lungs: ${SOURCES.hra.copyright} (CC BY 4.0). Adapted by icgor-saglik.`
-        : `${SOURCES.bodyparts3d.copyright}. Adapted by icgor-saglik.`;
+      doc.getRoot().getAsset().copyright = `${SOURCES.bodyparts3d.copyright}. Adapted by icgor-saglik (CC BY-SA 4.0).`;
       await doc.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
       const bin = await io.writeBinary(doc);
       const rel = `${lod}/${layer}.glb`;
@@ -266,12 +297,12 @@ function licenseText(m) {
   const B = SOURCES.bodyparts3d, H = SOURCES.hra;
   return `# Anatomik 3B model lisansları
 
-Bu klasördeki model dosyaları (\`*.glb\`) üçüncü taraf açık verilerden **türetilmiştir**.
-Uygulamanın kaynak kodu bu lisanslardan ayrıdır.
+Bu klasördeki model dosyaları (\`*.glb\`) üçüncü taraf açık veriden **türetilmiştir**.
+Uygulamanın kaynak kodu bu lisanstan ayrıdır.
 
 > Bu modeller genel referans anatomidir; herhangi bir kişinin tıbbi taraması değildir.
 
-## BodyParts3D (deri, iskelet, akciğer dışındaki organlar)
+## BodyParts3D (tüm modeller)
 
 - Atıf: **${B.copyright}**
 - Kaynak: ${B.licenseUrl} · Ayna: ${B.mirror} (commit \`${B.commit}\`, ${B.mirrorDoi})
@@ -279,22 +310,19 @@ Uygulamanın kaynak kodu bu lisanslardan ayrıdır.
 - Lisans notu: ${B.licenseNote}
 - **Bu klasördeki türev dosyalar: CC BY-SA 4.0** — https://creativecommons.org/licenses/by-sa/4.0/
 
-## Human Reference Atlas (akciğerler)
-
-- Atıf: **${H.copyright}**
-- Kaynak: ${H.licenseUrl} · Depo: ${H.repo} (commit \`${H.commit}\`, \`${H.path}\`)
-- Yayın: ${H.citation}
-- Lisans: **CC BY 4.0** — https://creativecommons.org/licenses/by/4.0/
-
-## Yapılan değişiklikler (uyarlama)
+### Yapılan değişiklikler (uyarlama)
 
 - Birim mm → m, eksenler Z-yukarı → Y-yukarı; vücut ayak tabanı y=0 olacak şekilde ortalandı.
 - Parçalar anatomik yapılara birleştirildi; yinelenen temsiller ayıklandı.
 - meshoptimizer ile iki ayrıntı düzeyine sadeleştirildi (high / low), normaller yeniden hesaplandı,
   EXT_meshopt_compression ile sıkıştırıldı.
-- HRA akciğerleri, ${m.registration.landmarks} ortak işaret noktasından uydurulan afin dönüşümle BodyParts3D
-  gövdesine yerleştirildi (RMS kalıntı ${m.registration.rmsMm} mm). Bu bir yaklaşık hizalamadır.
 - Her parçanın kaynak kimliği ve SHA-256 özeti: \`provenance.json\`.
+
+## Doğrulama için kullanılan (dağıtılmayan) veri
+
+- ${H.title} — ${H.copyright}. Lisans: CC BY 4.0 (${H.licenseUrl}). Yayın: ${H.citation}
+- Yalnızca derleme sırasında, konumların bağımsız çapraz kontrolü için kullanılır
+  (${m.validation.landmarks} ortak yapı, kayıt RMS ${m.validation.rmsMm} mm). Bu klasörde HRA geometrisi yoktur.
 `;
 }
 

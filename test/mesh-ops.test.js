@@ -96,3 +96,15 @@ test('zip okuyucu: deflate girdisini açar', () => {
   const zip = Buffer.concat([local, name, comp, central, name, eocd]);
   assert.equal(unzipEntry(zip, (n) => n.endsWith('.glb')).toString(), data.toString());
 });
+
+test('işaretli hacim: dışa dönük küp +1, ters çevrilince −1 ve orientOutward düzeltir', async () => {
+  const { signedVolume, flipWinding, orientOutward } = await import('../scripts/anatomy/mesh-ops.mjs');
+  const cube = parseObj(CUBE);
+  assert.ok(Math.abs(signedVolume(cube) - 1) < 1e-9);
+  const inv = flipWinding(cube);
+  assert.ok(Math.abs(signedVolume(inv) + 1) < 1e-9);
+  const fixed = orientOutward(inv);
+  assert.ok(fixed.flipped);
+  assert.ok(signedVolume(fixed.mesh) > 0);
+  assert.equal(orientOutward(cube).flipped, false);
+});

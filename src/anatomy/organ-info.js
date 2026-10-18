@@ -77,13 +77,13 @@ export const ORGAN_INFO = {
     tr: 'Sağ akciğer', system: 'respiratory',
     location: 'Göğüs boşluğunun sağ yarısında; üç lobludur (üst, orta, alt). Tabanı diyaframın sağ kubbesine oturur.',
     function: 'Solunan havadaki oksijeni kana geçirir, kandaki karbondioksiti dışarı verir (gaz alışverişi alveollerde olur).',
-    facts: ['Karaciğer altta yer aldığından sağ akciğer soldakinden biraz daha kısa ama daha geniştir.', 'Model: Human Reference Atlas; BodyParts3D gövdesine yaklaşık hizalanmıştır.'],
+    facts: ['Karaciğer altta yer aldığından sağ akciğer soldakinden biraz daha kısa ama daha geniştir.', 'Model, bronkopulmoner segmentlerin birleştirilmesiyle oluşturuldu.'],
   },
   'lung-left': {
     tr: 'Sol akciğer', system: 'respiratory',
     location: 'Göğüs boşluğunun sol yarısında; iki lobludur (üst ve alt). Ön yüzünde kalbe yer açan kardiyak çentik bulunur.',
     function: 'Sağ akciğerle birlikte gaz alışverişini sağlar.',
-    facts: ['Model: Human Reference Atlas; BodyParts3D gövdesine yaklaşık hizalanmıştır.'],
+    facts: ['Model, bronkopulmoner segmentlerin birleştirilmesiyle oluşturuldu.'],
   },
   airways: {
     tr: 'Soluk borusu ve bronş ağacı', system: 'respiratory',

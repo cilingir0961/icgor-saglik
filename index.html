@@ -3,67 +3,214 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#10161c">
-  <!-- Gizlilik güvencesi: sayfa hiçbir dış adrese bağlanamaz; DICOM ve kamera verisi cihazda kalır. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>İçgör Anatomi</title>
+  <meta name="theme-color" content="#070b14">
+  <meta name="color-scheme" content="dark">
+  <!-- Gizlilik güvencesi: sayfa hiçbir dış adrese bağlanamaz; kamera görüntüsü ve DICOM dosyaları cihazda kalır.
+       'wasm-unsafe-eval': yalnızca yerel WebAssembly (model açıcı, vücut takibi) için; eval() izni değildir. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; connect-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>İçGör — 3B Anatomi</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="src/styles.css">
+  <link rel="stylesheet" href="src/ui/styles.css">
 </head>
-<body>
-  <header class="top">
-    <h1>İçgör <span>Anatomi Prototipi</span></h1>
-    <p class="disclaimer not-dicom" role="note">
-      <strong>Eğitim amaçlıdır, teşhis aracı değildir.</strong>
-      Kamera iç organları göremez. Gösterilen organlar genel bir şematik modeldir;
-      gerçek organ görüntüsü yalnızca uygun tıbbi görüntüleme donanımıyla (BT, MR, ultrason vb.) elde edilir.
-    </p>
-    <p class="disclaimer dicom-only" role="note">
-      <strong>Araştırma/eğitim prototipidir, tanı için kullanılamaz.</strong>
-      Klinik değerlendirme için onaylı bir görüntüleyici ve uzman hekim gerekir.
-      Dosyalar yalnızca bu cihazda işlenir, hiçbir yere gönderilmez.
-    </p>
+<body data-screen="anatomy">
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-body" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.2"/><path d="M8 21v-6l-2-1V9.5A2.5 2.5 0 0 1 8.5 7h7A2.5 2.5 0 0 1 18 9.5V14l-2 1v6"/><path d="M12 7v14"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.4A1.5 1.5 0 0 1 9.8 5h4.4a1.5 1.5 0 0 1 1.2.6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h10M12 8v8"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 2.5 8 12 13l9.5-5z"/><path d="m2.5 12.5 9.5 5 9.5-5M2.5 16.5l9.5 5 9.5-5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.3"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 8V4h4M17 4h4v4M21 16v4h-4M7 20H3v-4"/></symbol>
+    <symbol id="i-isolate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" stroke-dasharray="2 3"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.4-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.6-7.5 10-7.5 10z"/><path d="M5 12h3l1.5-2.5 2 5L13 12h6"/></symbol>
+    <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M20 4v4h-4M4 20v-4h4"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  </svg>
+
+  <header class="appbar">
+    <div class="brand">
+      <img src="icon.svg" alt="" width="28" height="28">
+      <div><strong>İçGör</strong><span>Anatomi araştırma prototipi</span></div>
+    </div>
+    <button class="icon-btn" id="btn-about" aria-label="Hakkında, kaynaklar ve lisanslar"><svg><use href="#i-info"/></svg></button>
   </header>
 
-  <main class="stage-wrap">
-    <canvas id="stage" aria-label="Anatomi görüntüleme alanı"></canvas>
-    <video id="video" playsinline muted hidden></video>
-    <div id="status" class="status" aria-live="polite"></div>
+  <main class="screens">
+    <!-- ================= 3B ANATOMİ ================= -->
+    <section class="screen" id="screen-anatomy" aria-label="3B anatomi">
+      <div class="viewport" id="anatomy-viewport">
+        <svg class="label-lines" id="anatomy-lines" aria-hidden="true"></svg>
+        <div class="labels" id="anatomy-labels"></div>
+      </div>
+      <div class="chip provenance" data-kind="atlas"><svg><use href="#i-shield"/></svg>Atlas modeli · kişiye ait tarama değil</div>
+      <div class="sim-badge" id="sim-badge" hidden><svg><use href="#i-heart"/></svg>SİMÜLASYON — gerçek kalp hareketi değil</div>
+      <div class="float-tools">
+        <button class="tool" id="btn-layers" aria-expanded="false" aria-controls="layers-panel"><svg><use href="#i-layers"/></svg><span>Katmanlar</span></button>
+        <button class="tool" id="btn-structures" aria-controls="structures-panel"><svg><use href="#i-list"/></svg><span>Yapılar</span></button>
+        <button class="tool" id="btn-labels" aria-pressed="true"><svg><use href="#i-tag"/></svg><span>Etiketler</span></button>
+        <button class="tool" id="btn-reset"><svg><use href="#i-reset"/></svg><span>Sıfırla</span></button>
+      </div>
+      <div class="view-switch seg" role="group" aria-label="Görünüm yönü">
+        <button data-view="front" aria-pressed="true">Ön</button>
+        <button data-view="left" aria-pressed="false">Sol</button>
+        <button data-view="back" aria-pressed="false">Arka</button>
+        <button data-view="right" aria-pressed="false">Sağ</button>
+      </div>
+      <div class="popover" id="layers-panel" hidden>
+        <h3>Katmanlar</h3>
+        <div id="layer-rows"></div>
+        <label class="row">Kalite
+          <select id="sel-quality"><option value="auto">Otomatik</option><option value="high">Yüksek</option><option value="low">Düşük (mobil)</option></select>
+        </label>
+        <p class="fine" id="quality-note"></p>
+      </div>
+      <div class="overlay" id="anatomy-loading">
+        <div class="loader-card">
+          <div class="spinner"></div>
+          <p id="anatomy-loading-text">Anatomik model yükleniyor…</p>
+          <div class="progress"><div id="anatomy-progress"></div></div>
+        </div>
+      </div>
+      <div class="overlay" id="anatomy-error" hidden>
+        <div class="card">
+          <h2 id="anatomy-error-title">Model yüklenemedi</h2>
+          <p id="anatomy-error-text"></p>
+          <button class="btn primary" id="btn-anatomy-retry">Tekrar dene</button>
+          <a class="btn ghost" id="link-legacy" href="legacy.html" hidden>Basit görünüme geç</a>
+        </div>
+      </div>
+      <p class="hint" id="anatomy-hint">Döndürmek için sürükleyin · iki parmakla yakınlaştırın · bir yapıya dokunun</p>
+    </section>
+
+    <!-- ================= KAMERA (AR) ================= -->
+    <section class="screen" id="screen-camera" aria-label="Kamera ile artırılmış gerçeklik">
+      <div class="viewport" id="camera-viewport">
+        <video id="camera-video" playsinline muted></video>
+        <canvas id="camera-handles"></canvas>
+      </div>
+      <div class="chip provenance warn" data-kind="ar"><svg><use href="#i-shield"/></svg>Yaklaşık hizalama · atlas modeli, gerçek organ görüntüsü değil</div>
+      <div class="chip status" id="camera-status" hidden></div>
+      <div class="float-tools" id="camera-tools" hidden>
+        <button class="tool" id="btn-cam-flip"><svg><use href="#i-flip"/></svg><span>Çevir</span></button>
+        <button class="tool" id="btn-cam-skeleton" aria-pressed="false"><svg><use href="#i-body"/></svg><span>İskelet</span></button>
+        <button class="tool" id="btn-cam-manual" aria-pressed="false"><svg><use href="#i-focus"/></svg><span>Elle</span></button>
+        <button class="tool" id="btn-cam-stop"><svg><use href="#i-close"/></svg><span>Durdur</span></button>
+      </div>
+      <label class="cam-opacity" id="cam-opacity-wrap" hidden>Saydamlık <input id="cam-opacity" type="range" min="0.2" max="1" step="0.05" value="0.75"></label>
+      <div class="overlay" id="camera-start">
+        <div class="card">
+          <svg class="card-icon"><use href="#i-camera"/></svg>
+          <h2>Kamera ile anatomi katmanı</h2>
+          <p>Vücut takibi omuz ve kalçalarınızı bulur ve genel bir anatomi modelini görüntünün üzerine <strong>yaklaşık</strong> olarak yerleştirir.</p>
+          <ul class="facts">
+            <li>Kamera iç organları göremez; gösterilen organlar sizin organlarınız değildir.</li>
+            <li>Görüntü yalnızca bu cihazda işlenir, kaydedilmez ve gönderilmez.</li>
+          </ul>
+          <button class="btn primary" id="btn-cam-start">Kamerayı başlat</button>
+          <button class="btn ghost" data-goto="anatomy">Kamerasız 3B incele</button>
+        </div>
+      </div>
+      <div class="overlay" id="camera-denied" hidden>
+        <div class="card">
+          <svg class="card-icon warn"><use href="#i-camera"/></svg>
+          <h2 id="camera-denied-title">Kamera izni verilmedi</h2>
+          <p id="camera-denied-text">Kamera olmadan da 3B anatomi modelini inceleyebilirsiniz.</p>
+          <details class="howto"><summary>İzni nasıl veririm?</summary>
+            <p><strong>iPhone (Safari):</strong> Ayarlar → Safari → Kamera → İzin Ver; ya da adres çubuğundaki “aA” → Web Sitesi Ayarları.</p>
+            <p><strong>Android (Chrome):</strong> Adres çubuğundaki kilit simgesi → İzinler → Kamera.</p>
+            <p><strong>Bilgisayar:</strong> Adres çubuğundaki kamera/kilit simgesinden izin verin.</p>
+          </details>
+          <button class="btn primary" id="btn-cam-retry">Tekrar dene</button>
+          <button class="btn ghost" data-goto="anatomy">Kamerasız 3B incele</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TIBBİ GÖRÜNTÜ (DICOM) ================= -->
+    <section class="screen" id="screen-imaging" aria-label="Tıbbi görüntü inceleme">
+      <div class="viewport" id="imaging-viewport"><canvas id="imaging-canvas"></canvas></div>
+      <div class="chip provenance" id="imaging-source" data-kind="none"><svg><use href="#i-shield"/></svg><span>Kaynak seçilmedi</span></div>
+      <div class="imaging-bar">
+        <button class="btn" id="btn-dicom-open"><svg><use href="#i-upload"/></svg>DICOM aç</button>
+        <input id="file-dicom" type="file" multiple hidden>
+        <button class="btn ghost" id="btn-phantom">Sentetik fantom</button>
+        <select id="sel-plane" aria-label="Düzlem"></select>
+        <select id="sel-window" aria-label="Pencere">
+          <option value="yumusak-doku">Yumuşak doku</option>
+          <option value="akciger">Akciğer</option>
+          <option value="kemik">Kemik</option>
+          <option value="beyin">Beyin</option>
+          <option value="otomatik">Otomatik</option>
+        </select>
+        <label class="slice">Kesit <input id="rng-slice" type="range" min="0" max="0" value="0" disabled></label>
+      </div>
+      <p class="warnline" id="dicom-warnings" aria-live="polite"></p>
+    </section>
   </main>
 
-  <nav class="toolbar">
-    <div class="seg" role="group" aria-label="Görünüm modu">
-      <button data-mode="camera" aria-pressed="true">Kamera</button>
-      <button data-mode="orbit" aria-pressed="false">3B</button>
-      <button data-mode="dicom" aria-pressed="false">DICOM</button>
-    </div>
-    <button id="btn-camera" class="camera-only">Kamerayı aç</button>
-    <button id="btn-flip" class="camera-only" disabled>Çevir</button>
-    <button id="btn-reset" class="not-dicom">Sıfırla</button>
-    <button id="btn-dicom-open" class="dicom-only">DICOM aç</button>
-    <input id="file-dicom" type="file" multiple hidden>
-    <button id="btn-phantom" class="dicom-only">Fantom</button>
-    <select id="sel-plane" class="dicom-only" aria-label="Düzlem"></select>
-    <select id="sel-window" class="dicom-only" aria-label="Pencere">
-      <option value="yumusak-doku">Yumuşak doku</option>
-      <option value="akciger">Akciğer</option>
-      <option value="kemik">Kemik</option>
-      <option value="beyin">Beyin</option>
-      <option value="otomatik">Otomatik</option>
-    </select>
-    <label class="dicom-only slice">Kesit <input id="rng-slice" type="range" min="0" max="0" value="0" disabled></label>
-    <p id="dicom-warnings" class="dicom-only hint" aria-live="polite"></p>
-    <details class="panel not-dicom">
-      <summary>Organlar</summary>
-      <div class="panel-body">
-        <label><input id="chk-labels" type="checkbox" checked> Etiketler</label>
-        <label>Saydamlık <input id="rng-alpha" type="range" min="0.2" max="1" step="0.05" value="0.8"></label>
-        <div id="organ-list" class="organ-list"></div>
-        <p class="hint camera-only">Mavi noktaları omuz ve kalçalarınıza sürükleyin. Görüntü cihazınızdan çıkmaz.</p>
+  <!-- Yapılar listesi -->
+  <aside class="sheet" id="structures-panel" hidden aria-label="Yapılar">
+    <div class="sheet-head"><h2>Yapılar</h2><button class="icon-btn" data-close="structures-panel" aria-label="Kapat"><svg><use href="#i-close"/></svg></button></div>
+    <input type="search" id="structure-search" placeholder="Organ veya kemik ara…" aria-label="Yapı ara">
+    <div id="structure-list" class="structure-list"></div>
+  </aside>
+
+  <!-- Organ detay paneli -->
+  <aside class="sheet detail" id="detail-panel" hidden aria-live="polite" aria-label="Yapı ayrıntıları">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <div>
+        <h2 id="detail-name"></h2>
+        <p class="sub"><span id="detail-en"></span> · <span class="pill" id="detail-system"></span></p>
       </div>
-    </details>
+      <button class="icon-btn" data-close="detail-panel" aria-label="Kapat"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <p class="source-line" id="detail-source"></p>
+    <div class="actions">
+      <button class="btn small" id="btn-detail-focus"><svg><use href="#i-focus"/></svg>Odakla</button>
+      <button class="btn small" id="btn-detail-isolate" aria-pressed="false"><svg><use href="#i-isolate"/></svg>Tek başına</button>
+      <button class="btn small" id="btn-detail-hide"><svg><use href="#i-eye-off"/></svg>Gizle</button>
+    </div>
+    <label class="row">Saydamlık <input id="detail-opacity" type="range" min="0.1" max="1" step="0.05" value="1"></label>
+    <label class="row heart-only" hidden><span class="with-icon"><svg><use href="#i-heart"/></svg>Kalp atımı simülasyonu</span><input type="checkbox" id="chk-heart-sim" role="switch"></label>
+    <section><h3>Anatomik konum</h3><p id="detail-location"></p></section>
+    <section><h3>Temel işlev</h3><p id="detail-function"></p></section>
+    <section id="detail-facts-wrap"><h3>Bilgi notları</h3><ul id="detail-facts"></ul></section>
+    <p class="fine">Eğitim amaçlı genel bilgidir; tanı veya tedavi önerisi değildir.</p>
+  </aside>
+
+  <nav class="tabbar" aria-label="Ekranlar">
+    <a href="#/anatomi" data-tab="anatomy"><svg><use href="#i-body"/></svg><span>Anatomi</span></a>
+    <a href="#/kamera" data-tab="camera"><svg><use href="#i-camera"/></svg><span>Kamera</span></a>
+    <a href="#/goruntu" data-tab="imaging"><svg><use href="#i-scan"/></svg><span>Görüntü</span></a>
   </nav>
 
-  <script type="module" src="src/app.js"></script>
+  <dialog id="about-dialog" aria-labelledby="about-title">
+    <div class="dialog-head"><h2 id="about-title">Hakkında</h2><button class="icon-btn" data-close-dialog aria-label="Kapat"><svg><use href="#i-close"/></svg></button></div>
+    <div class="dialog-body">
+      <p class="notice"><strong>Araştırma ve eğitim prototipidir. Tıbbi cihaz değildir, tanı koymaz.</strong></p>
+      <h3>Üç ayrı veri türü</h3>
+      <ol class="kinds">
+        <li><span class="dot atlas"></span><strong>Anatomik model (atlas):</strong> Genel referans insan anatomisi. Kimseye ait tarama değildir.</li>
+        <li><span class="dot ar"></span><strong>Kamera takibi:</strong> Yalnızca vücudun dış hatlarından (omuz, kalça) yaklaşık konum. İç organları görmez.</li>
+        <li><span class="dot imaging"></span><strong>Tıbbi görüntü:</strong> Yalnızca BT/MR gibi tıbbi cihazlarla elde edilmiş DICOM dosyaları. Gelecekte onaylı ultrason cihazları da bu sınıfa eklenecektir.</li>
+      </ol>
+      <h3>3B model kaynakları ve lisansları</h3>
+      <div id="about-sources"></div>
+      <h3>Yazılım</h3>
+      <p>three.js (MIT) · MediaPipe Tasks Vision ve Pose Landmarker modeli (Apache 2.0) · meshoptimizer (MIT)</p>
+      <h3>Gizlilik</h3>
+      <p>Kamera görüntüsü ve açtığınız dosyalar bu cihazda işlenir. İçerik Güvenlik Politikası sayfanın dış adreslere bağlanmasını engeller.</p>
+    </div>
+  </dialog>
+
+  <noscript><p class="noscript">Bu uygulama JavaScript gerektirir.</p></noscript>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -72,9 +72,14 @@ test('kalp iki akciğer arasında, akciğer tepeleri ilk kaburga hizasına yakı
   assert.ok(Math.abs(S['lung-right'].max[1] - S.ribcage.max[1]) < 0.05);
 });
 
-test('akciğer kaydı kalıntısı kabul edilebilir (RMS < 25 mm)', () => {
-  assert.ok(manifest.registration.landmarks >= 25);
-  assert.ok(manifest.registration.rmsMm < 25, `${manifest.registration.rmsMm} mm`);
+test('bağımsız atlasla çapraz doğrulama: kayıt RMS < 25 mm, akciğer merkezleri < 30 mm', () => {
+  const v = manifest.validation;
+  assert.ok(v.landmarks >= 25);
+  assert.ok(v.rmsMm < 25, `${v.rmsMm} mm`);
+  for (const l of v.lungs) {
+    assert.ok(l.centroidDistanceMm < 30, `${l.id}: ${l.centroidDistanceMm} mm`);
+    assert.ok(l.boxIoU > 0.4, `${l.id}: IoU ${l.boxIoU}`);
+  }
 });
 
 test('mobil (low) dosyalar masaüstü (high) dosyalardan küçük ve bütçe içinde', () => {

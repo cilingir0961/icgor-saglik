@@ -144,3 +144,30 @@ export function measure(m) {
   }
   return { area, centroid: area ? [cx / area, cy / area, cz / area] : [0, 0, 0], min, max };
 }
+
+/** İşaretli hacim (Σ a·(b×c)/6). Kapalı ve dışa dönük ağda pozitiftir. */
+export function signedVolume(m) {
+  const P = m.positions;
+  let v = 0;
+  for (let t = 0; t < m.indices.length; t += 3) {
+    const a = m.indices[t] * 3, b = m.indices[t + 1] * 3, c = m.indices[t + 2] * 3;
+    v += P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1])
+      - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c])
+      + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c]);
+  }
+  return v / 6;
+}
+
+/** Üçgen sarım yönünü ters çevirir. */
+export function flipWinding(m) {
+  const idx = Uint32Array.from(m.indices);
+  for (let t = 0; t < idx.length; t += 3) [idx[t + 1], idx[t + 2]] = [idx[t + 2], idx[t + 1]];
+  return { positions: m.positions, indices: idx };
+}
+
+/** İçe dönük (negatif hacimli) ağı dışa döndürür. Hacim, merkez etrafında hesaplanır (sayısal kararlılık). */
+export function orientOutward(m) {
+  const { centroid } = measure(m);
+  const centered = transformMesh(m, ([x, y, z]) => [x - centroid[0], y - centroid[1], z - centroid[2]]);
+  return signedVolume(centered) < 0 ? { mesh: flipWinding(m), flipped: true } : { mesh: m, flipped: false };
+}

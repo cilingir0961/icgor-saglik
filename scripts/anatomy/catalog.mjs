@@ -40,14 +40,23 @@ export const STRUCTURES = [
   { id: 'brain', layer: 'organs', en: 'Brain', fma: 'FMA50801', select: (c) => c.concept('FMA50801').filter((fj) => !/ventricle|aqueduct/i.test(c.name(fj))), cls: () => 'brain', budget: { high: 30000, low: 9000 } },
   {
     id: 'heart', layer: 'organs', en: 'Heart', fma: 'FMA7088',
-    select: (c) => c.concept('FMA7088').filter((fj) => !/^cavity of/i.test(c.name(fj))),
+    // Karıncık ve kulakçık duvarları FMA7088 ağacında değil (FMA13256 altında); adla eklenir.
+    select: (c) => [...c.concept('FMA7088'), ...c.find(/^Wall of (ventricle|left atrium|right atrium)$/i)].filter((fj) => !/^cavity of/i.test(c.name(fj))),
     cls: (n) => vesselClass(n) ?? 'heart', budget: { high: 24000, low: 8000 },
   },
-  { id: 'lung-right', layer: 'organs', en: 'Right lung', fma: 'FMA7333', source: 'hra', hraNode: 'VH_M_lungs_R', cls: () => 'lung', budget: { high: 16000, low: 5000 } },
-  { id: 'lung-left', layer: 'organs', en: 'Left lung', fma: 'FMA7370', source: 'hra', hraNode: 'VH_M_lungs_L', cls: () => 'lung', budget: { high: 16000, low: 5000 } },
+  // Akciğer parankimi 4.3'te akciğer kavram ağacına bağlı değil (ayrı FJ65xx temsil serisi); adla seçilir.
+  // Sağ orta lob segmentleri ("lateral", "medial") adında taraf belirtmez.
+  {
+    id: 'lung-right', layer: 'organs', en: 'Right lung', fma: 'FMA7333', hraNode: 'VH_M_lungs_R',
+    select: (c) => c.find(/^Parenchyma of (right .*|lateral|medial) bronchopulmonary segment$/i), cls: () => 'lung', budget: { high: 16000, low: 5000 },
+  },
+  {
+    id: 'lung-left', layer: 'organs', en: 'Left lung', fma: 'FMA7370', hraNode: 'VH_M_lungs_L',
+    select: (c) => c.find(/^Parenchyma of (left .*|.*lingular|apicoposterior) bronchopulmonary segment$/i), cls: () => 'lung', budget: { high: 16000, low: 5000 },
+  },
   {
     id: 'airways', layer: 'organs', en: 'Trachea and bronchial tree', fma: 'FMA7394',
-    select: (c) => [...c.concept('FMA7394'), ...c.concept('FMA7333'), ...c.concept('FMA7370')].filter((fj) => /trachea|bronchial tree/i.test(c.name(fj))),
+    select: (c) => c.find(/^(trachea|(right|left) main bronchus( proper)?|.*bronchial tree)$/i),
     cls: () => 'airway', budget: { high: 8000, low: 2500 },
   },
   { id: 'esophagus', layer: 'organs', en: 'Esophagus', fma: 'FMA7131', select: (c) => c.concept('FMA7131'), cls: () => 'esophagus', budget: { high: 1500, low: 600 } },
@@ -92,26 +101,4 @@ export const LANDMARKS = [
   ['VH_M_urinary_bladder', { structure: 'bladder' }],
 ];
 
-/** Malzeme sınıfları: temel renk (doğrusal olmayan sRGB) ve pürüzlülük. Görüntüleyici bunları PBR malzemeye çevirir. */
-export const MATERIALS = {
-  skin: { color: '#d9a68c', roughness: 0.6 },
-  bone: { color: '#e8dcc4', roughness: 0.55 },
-  cartilage: { color: '#bcd3d6', roughness: 0.35 },
-  brain: { color: '#e3b7b0', roughness: 0.5 },
-  heart: { color: '#a8323a', roughness: 0.38 },
-  artery: { color: '#d03a3a', roughness: 0.35 },
-  vein: { color: '#3d5fb0', roughness: 0.35 },
-  lung: { color: '#e09aa0', roughness: 0.55 },
-  airway: { color: '#e6d0c0', roughness: 0.45 },
-  esophagus: { color: '#c88a7a', roughness: 0.4 },
-  diaphragm: { color: '#a24b4b', roughness: 0.5 },
-  liver: { color: '#7a2a22', roughness: 0.35 },
-  gallbladder: { color: '#4f7a3a', roughness: 0.3 },
-  stomach: { color: '#d48a74', roughness: 0.35 },
-  spleen: { color: '#6e2a4a', roughness: 0.35 },
-  pancreas: { color: '#e0b27a', roughness: 0.45 },
-  kidney: { color: '#8c3a2c', roughness: 0.35 },
-  'small-intestine': { color: '#e3a98a', roughness: 0.35 },
-  'large-intestine': { color: '#c98f6c', roughness: 0.4 },
-  bladder: { color: '#d8c06a', roughness: 0.35 },
-};
+export { MATERIALS } from '../../src/three/palette.js';
