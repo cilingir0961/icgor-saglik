@@ -45,3 +45,17 @@ export function ring(pct, { size = 64, stroke = 7, cls = '' } = {}) {
     s('circle', { cx: size / 2, cy: size / 2, r, class: 'ring-track', 'stroke-width': stroke }),
     p > 0 ? s('circle', { cx: size / 2, cy: size / 2, r, class: 'ring-value', 'stroke-width': stroke, 'stroke-dasharray': `${(c * p) / 100} ${c}`, transform: `rotate(-90 ${size / 2} ${size / 2})` }) : null);
 }
+
+/** Ekran başlığı (İçGör Studio): üst etiket, büyük başlık, açıklama ve isteğe bağlı sağ öğe. */
+export function pageHead(eyebrow, title, sub, aside = null) {
+  const el = document.createElement('header');
+  el.className = 'page-head';
+  const left = document.createElement('div');
+  for (const [tag, cls, text] of [['p', 'eyebrow', eyebrow], ['h1', 'display', title], ['p', 'sub', sub]]) {
+    if (!text) continue;
+    const n = document.createElement(tag); n.className = cls; n.textContent = text; left.append(n);
+  }
+  el.append(left);
+  if (aside) el.append(aside);
+  return el;
+}

@@ -1,0 +1,82 @@
+{
+  "note": "Headless Chromium, SwiftShader, 4x CPU yavaşlatma; gerçek cihaz değil. renderMs: hash değişiminden ekranın hazır olduğu ilk kareye.",
+  "screens": [
+    {
+      "name": "bugun",
+      "renderMs": 298,
+      "dom": 145,
+      "imgKB": 61,
+      "heapMB": 11.9
+    },
+    {
+      "name": "antrenman",
+      "renderMs": 187,
+      "dom": 64,
+      "imgKB": 92,
+      "heapMB": 17.4
+    },
+    {
+      "name": "antrenman-oturum",
+      "renderMs": 273,
+      "dom": 199,
+      "imgKB": 111,
+      "heapMB": 22.2
+    },
+    {
+      "name": "asistan",
+      "renderMs": 138,
+      "dom": 81,
+      "imgKB": 0,
+      "heapMB": 27.2
+    },
+    {
+      "name": "tarama",
+      "renderMs": 269,
+      "dom": 81,
+      "imgKB": 0,
+      "heapMB": 33.1
+    },
+    {
+      "name": "bana-anlat",
+      "renderMs": 305,
+      "dom": 167,
+      "imgKB": 85,
+      "heapMB": 38.1
+    },
+    {
+      "name": "aktivite",
+      "renderMs": 179,
+      "dom": 100,
+      "imgKB": 0,
+      "heapMB": 43.2
+    },
+    {
+      "name": "gelisim",
+      "renderMs": 104,
+      "dom": 70,
+      "imgKB": 0,
+      "heapMB": 48.7
+    },
+    {
+      "name": "bildirimler",
+      "renderMs": 239,
+      "dom": 96,
+      "imgKB": 0,
+      "heapMB": 53.4
+    },
+    {
+      "name": "verilerim",
+      "renderMs": 129,
+      "dom": 39,
+      "imgKB": 0,
+      "heapMB": 58.5
+    },
+    {
+      "name": "anatomi",
+      "renderMs": 10439,
+      "dom": 164,
+      "imgKB": 0,
+      "heapMB": 23.1
+    }
+  ]
+}

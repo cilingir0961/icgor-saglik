@@ -62,6 +62,9 @@ async function scenario(name, device, fn, browser) {
 }
 
 async function shot(page, r, name, { visual = true } = {}) {
+  // Görsel karşılaştırmada CSS animasyonları (ör. Bana Anlat işaret parıltısı) başlangıç karesinde sabitlenir;
+  // aksi hâlde sonuç çekim anındaki faza bağlı olur. WebGL/canvas çizimi etkilenmez, tolerans değişmez.
+  if (visual) await page.eval("document.getAnimations().forEach((a) => { if (a instanceof CSSAnimation) { a.pause(); a.currentTime = 0; } })").catch(() => {});
   const png = await page.screenshot();
   const file = `${r.name.replace('/', '-')}-${name}.png`;
   await writeFile(join(OUT, file), png);
@@ -825,6 +828,11 @@ const insight3d = async (page, r, dev) => {
   await page.waitFor("document.querySelectorAll('#insight-markers .imark').length === 8", 20000);
   await page.waitFor("document.getElementById('insight-dialog').open", 10000);
   await sleep(800);
+  // Tüm vücut çerçevelemesi 650 ms'lik kamera geçişiyle yapılır; yazılım GPU'sunda kareler seyrek olduğundan geçiş
+  // bitmeden ölçülürse ayak bileği işareti henüz kadraja girmemiş olabilir. Son durumu (kullanıcının gördüğü) ölç.
+  r.metrics.tweenAtCheck = await page.eval('!!window.__icgor.viewer.tween');
+  await page.waitFor('!window.__icgor.viewer.tween', 15000);
+  await sleep(300);
   const m = await page.eval("[...document.querySelectorAll('#insight-markers .imark')].map(b => ({id: b.dataset.region, cls: b.className, hidden: b.hidden, r: b.getBoundingClientRect().toJSON()}))");
   r.metrics.markers = m.map((x) => `${x.id}:${x.cls.split(' ')[1]}`);
   const vp = await page.eval("document.getElementById('anatomy-viewport').getBoundingClientRect().toJSON()");

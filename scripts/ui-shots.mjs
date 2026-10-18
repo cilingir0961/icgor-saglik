@@ -1,5 +1,7 @@
 // Arayüz ekran görüntüleri (önce/sonra karşılaştırması için). Örnek durum TEST VERİSİDİR (gerçek kişi değil).
-// Kullanım: node scripts/ui-shots.mjs <çıktı-klasörü> [iphone|android|desktop]
+// Kullanım: node scripts/ui-shots.mjs <çıktı-klasörü> [iphone|android|desktop] [ekran,ekran…]
+// PERF=1: ekran görüntüsü yerine 4× CPU yavaşlatmasıyla ekran açılış süresi, DOM boyutu, görsel baytı ve JS belleği
+// ölçülür (<çıktı>/perf-<cihaz>.json). Headless Chromium + yazılım GPU'su: gerçek cihaz ölçümü DEĞİLDİR.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { serve, launchChrome, sleep } from './lib/cdp.mjs';
@@ -7,6 +9,7 @@ import { STORE_KEY } from '../src/scan/store.js';
 
 const OUT = resolve(process.argv[2] ?? '.cache/ui-shots');
 const DEV = process.argv[3] ?? 'iphone';
+const PERF = process.env.PERF === '1';
 const ONLY = process.argv[4] ? new Set(process.argv[4].split(',')) : null;
 const DEVICES = {
   iphone: { width: 390, height: 844, dpr: 3, mobile: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' },
@@ -70,8 +73,25 @@ try {
   await page.waitFor("document.body.dataset.trainerState==='onboarding'", 30000);
   await page.eval("(()=>{for(const i of document.querySelectorAll('input[value=\"hayir\"]'))i.click();document.getElementById('btn-plan-create').click()})()");
   await page.waitFor("document.body.dataset.trainerState==='overview'", 10000);
+  const perf = [];
+  if (PERF) await page.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   for (const [name, hash, ready, action] of SCREENS) {
     if (ONLY && !ONLY.has(name)) continue;
+    if (PERF) {
+      // Her ekran soğuk açılır: sayfa yeniden yüklenir, başka bir ekrandan geçilir (modül ve görseller ilk kez yüklenir)
+      await page.send('Network.enable'); await page.send('Network.setCacheDisabled', { cacheDisabled: true });
+      const from = name === 'verilerim' ? ['#/bildirimler', "document.getElementById('notify-permission')"] : ['#/verilerim', "document.getElementById('data-summary')"];
+      await page.goto(`${base}/index.html?nosw&p=${name}${from[0]}`); await page.waitFor(`!!(${from[1]})`, 30000); await sleep(300);
+      const ms = await page.eval(`new Promise((res) => { performance.clearResourceTimings(); const t0 = performance.now(); location.hash = ${JSON.stringify(hash)};
+        const tick = () => { let ok = false; try { ok = !!(${ready}); } catch {} ok ? requestAnimationFrame(() => res(performance.now() - t0)) : (performance.now() - t0 > 90000 ? res(-1) : requestAnimationFrame(tick)); }; tick(); })`);
+      await sleep(600);
+      const m = await page.eval(`({ dom: document.getElementById('screen-' + document.body.dataset.screen)?.querySelectorAll('*').length ?? null,
+        imgKB: Math.round(performance.getEntriesByType('resource').filter((e) => /\.(webp|png|jpg)$/.test(e.name)).reduce((a, e) => a + (e.encodedBodySize || 0), 0) / 1024),
+        heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null })`);
+      perf.push({ name, renderMs: Math.round(ms), ...m });
+      console.log(name, Math.round(ms), 'ms', m);
+      continue;
+    }
     await page.eval(`location.hash = ${JSON.stringify(hash)}`);
     await page.waitFor(`!!(${ready})`, 90000).catch(() => console.log('hazır olmadı:', name));
     if (action) { await sleep(800); await page.eval(action); }
@@ -79,4 +99,5 @@ try {
     await writeFile(join(OUT, `${DEV}-${name}.png`), await page.screenshot());
     console.log('ok', name);
   }
+  if (PERF) await writeFile(join(OUT, `perf-${DEV}.json`), JSON.stringify({ note: 'Headless Chromium, SwiftShader, 4x CPU yavaşlatma; gerçek cihaz değil. renderMs: hash değişiminden ekranın hazır olduğu ilk kareye.', screens: perf }, null, 2));
 } finally { browser.close(); server.close(); }

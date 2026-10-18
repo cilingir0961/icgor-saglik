@@ -5,6 +5,7 @@
 import { getStore } from '../scan/store.js';
 import { h, icon } from '../scan/dom.js';
 import { SHARE_CATEGORIES, buildContext, previewLines } from './context.js';
+import { pageHead } from '../ui/visuals.js';
 
 const QUICK = [
   'Vücudumda nerelere dikkat etmeliyim?',
@@ -53,11 +54,11 @@ export async function createAssistantScreen() {
     const c = chat();
     const ctx = buildContext(store.state, c.share);
     const log = h('div', { class: 'chat-log', id: 'chat-log', 'aria-live': 'polite' },
-      msgs().length ? msgs().map(bubble) : h('p', { class: 'muted small', id: 'chat-empty' }, 'Antrenman, hareket, adım, uyku, beslenme, su, ergonomi ve motivasyon hakkında soru sorabilirsiniz. Asistan teşhis koymaz ve ilaç önermez.'));
+      msgs().length ? msgs().map(bubble) : h('div', { class: 'chat-empty', id: 'chat-empty' }, h('span', { class: 'stat-ico' }, icon('i-chat')), h('strong', {}, 'Bir soru sorarak başla'), h('p', { class: 'muted small' }, 'Antrenman, hareket, adım, uyku, beslenme, su, ergonomi ve motivasyon hakkında soru sorabilirsiniz. Asistan teşhis koymaz ve ilaç önermez.')));
     const input = h('textarea', { id: 'chat-input', rows: 2, maxlength: MAX_CHARS, placeholder: 'Sorunuzu yazın…', 'aria-label': 'Mesaj' });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input.value); } });
     page.replaceChildren(h('div', { class: 'assistant' },
-      h('div', { class: 'row-between' }, h('h2', {}, 'Asistan'), badge()),
+      pageHead('Asistan', 'Sana nasıl yardım edebilirim?', null, badge()),
       h('p', { class: 'sub' }, status?.demo
         ? 'Demo modu: yanıtlar sabit kurallarla ve kişisel planlayıcıyla cihazınızda/sunucuda üretilir; gerçek yapay zekâ modeli kullanılmaz ve ücret oluşmaz.'
         : 'Yanıtlar OpenAI modeliyle üretilir. Eğitim amaçlıdır; teşhis, tedavi veya ilaç önerisi değildir.'),

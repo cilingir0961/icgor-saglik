@@ -5,6 +5,7 @@ import { getStore } from '../scan/store.js';
 import { h, icon } from '../scan/dom.js';
 import { TYPES, defaults, nextEvent, validTime, message } from './schedule.js';
 import { start, stop, notify, planContext } from './runtime.js';
+import { pageHead } from '../ui/visuals.js';
 
 const DOW = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
@@ -26,8 +27,8 @@ export async function createNotifyScreen() {
     const n = N();
     const p = platformInfo();
     const nx = nextEvent(n, new Date(), planContext(store.state));
-    page.replaceChildren(h('div', {},
-      h('h2', {}, 'Hatırlatmalar'),
+    page.replaceChildren(h('div', { class: 'studio-page' },
+      pageHead('Bildirimler', 'Hatırlatmalar', 'Saatleri sen seçersin; izin vermeden hiçbir bildirim gönderilmez.'),
       h('section', { class: 'tile', id: 'notify-limits' },
         h('h3', {}, icon('i-bell'), 'Nasıl çalışır?'),
         h('ul', { class: 'small plain' },

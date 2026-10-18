@@ -54,3 +54,53 @@ boş durum (`.empty` + özgün SVG çizim).
 `scripts/render-ui-assets.mjs` → `assets/ui/` (WebP, saydam arka plan): projenin 3B atlasından kas görünümü
 renderları ve egzersiz pozları (rig hareketleri). Lisans: kaynak modellerin türevi → **CC BY-SA 4.0**, atıf
 `assets/ui/LICENSE.md` ve Hakkında ekranında. Egzersiz pozları basitleştirilmiş **SİMÜLASYON**dur.
+
+## Ekranlar (v0.8)
+
+| Ekran | Birincil eylem | Yapı |
+|---|---|---|
+| Bugün | Antrenmanı başlat | Selamlama · hafta şeridi · kahraman kart · sıradaki egzersiz · adım/hafta halkaları · Bana Anlat kartı · alışkanlıklar |
+| Antrenman | Antrenmanı başlat | Haftalık ilerleme halkası · sıradaki oturum (atlas görselli hareket şeridi) · oturum listesi (gün rozeti, ertele) · son antrenmanlar |
+| Antrenman oturumu | Tamamlandı | İlerleme halkası + çubuk · güvenlik notu · görselli egzersiz kartları (doz, ipuçları, güvenlik, kamera ile say) |
+| Kamera Koçu (koyu) | Bitir | Halka tekrar sayacı · durum balonu · alt şerit: açı / tempo / takip · kadraj rehberi (eklemler görünmeyince) |
+| Asistan | Gönder | Başlık + demo rozeti · paylaşım paneli · boş durum · hızlı sorular · yazma kutusu |
+| Tarama | Duruş taramasını başlat | Uyarı · kahraman kart · satır kartlar (hareket testleri, geçmiş, rapor, veriler) · profil ve çekim düzeni |
+| Bana Anlat | Bölgeye dokun | Atlas vücut haritası + işaretler · renk açıklaması · özet · dikkat çeken noktalar · tüm bölgeler |
+| Aktivite | Kaydet | Halka KPI · 7/30 gün grafiği (bugün vurgulu, hedef çizgisi) · hedef · yürüyüş sayacı (Deneysel) · kaynaklar |
+| Gelişim | — (okuma) | Bu hafta KPI halkaları · haftalık grafik veya boş durum · adım dönemleri · koç ve tarama karşılaştırmaları |
+| Bildirimler, Verilerim | İzin ver / Dışa aktar | Başlık + açıklama · kartlar |
+
+### Ölçüm dürüstlüğü arayüzde
+
+- Kamera koçunda **takip** göstergesi işlenen kare hızını ve eklemlerin görünmesini gösterir (ölçüm doğruluğu değildir).
+  Takip yavaşken (< 8 kare/sn) açı ve tempo "—" olur; özet "Ölçüm güvenilir değil, tekrar deneyin" der.
+- Kol kaldırma açısı "deneysel" etiketlidir (yalnızca sentetik doğrulama). Halka sayaç yalnızca hedef tekrar varsa dolar.
+- Güvenlik yönlendirmesi balonunda kırmızı değil uyarı (amber) rengi kullanılır.
+- Boş grafik yerine açıklamalı boş durum gösterilir; sıfır çubuklar "veri" gibi görünmez.
+- Gövde arka plan geçişi yoktur: ilk açılışta koyu→açık parlaması olmaz.
+
+## Mobil performans (sentetik ölçüm)
+
+`PERF=1 node scripts/ui-shots.mjs docs/bench iphone` → `docs/bench/perf-iphone.json`. Headless Chromium, yazılım GPU'su
+(SwiftShader), **4× CPU yavaşlatma**, önbellek kapalı, her ekran soğuk açılış. Gerçek cihaz ölçümü **değildir**.
+
+| Ekran | Açılış (ms) | DOM öğesi | Görsel (KB) |
+|---|---|---|---|
+| Bugün | 298 | 145 | 61 |
+| Antrenman | 187 | 64 | 92 |
+| Antrenman oturumu | 273 | 199 | 111 |
+| Asistan | 138 | 81 | 0 |
+| Tarama | 269 | 81 | 0 |
+| Bana Anlat | 305 | 167 | 85 |
+| Aktivite | 179 | 100 | 0 |
+| Gelişim | 104 | 70 | 0 |
+| Bildirimler | 239 | 96 | 0 |
+| Verilerim | 129 | 39 | 0 |
+| 3B Anatomi | 10 439 | 164 | — (GLB modelleri) |
+
+- Açık ekranlar yalnızca DOM + WebP; sürekli animasyon yok (işaret parıltısı yalnızca sarı/turuncu işaretlerde,
+  `prefers-reduced-motion` ile kapanır). Isınma/pil açısından ek yük beklenmez, ancak **gerçek iPhone'da ölçülmedi**.
+- Görseller `loading="lazy"`, boyutları önceden ayrılmış (kayma yok); `assets/ui` toplamı 532 KB, bir ekranda en çok ~111 KB.
+- 3B Anatomi süresi yazılım GPU'suyla model indirme + çizimdir; gerçek GPU'lu cihazda çok daha kısa olması beklenir,
+  bu da gerçek cihazda doğrulanmalıdır. JS bellek değerleri aynı sekmede yeniden yüklemeler arasında güvenilir
+  ölçülemediği için tabloya konmadı.
