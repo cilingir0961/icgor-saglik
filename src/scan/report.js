@@ -69,7 +69,7 @@ function moveMetricRow(id, m, testId) {
   return h('div', { class: `metric ${m.value == null ? 'na' : ''}`, dataset: { metric: id } },
     h('div', { class: 'metric-head' },
       h('span', { class: 'name' }, m.tr),
-      m.experimental ? h('span', { class: 'tag exp' }, 'Deneysel') : null,
+      m.experimental || vs.status === 'deneysel' ? h('span', { class: 'tag exp', title: vs.why ?? 'Doğruluğu kanıtlanmadı' }, 'Deneysel') : null,
       h('span', { class: `grade ${gradeClass(m.grade)}` }, m.grade)),
     h('div', { class: 'metric-value' }, m.value == null ? 'ölçülemedi' : `${fmt(m.value, m.unit === '' ? 2 : 1)}${u(m.unit)} ± ${fmt(m.u, m.unit === '' ? 2 : 1)}${u(m.unit)}`),
     m.sense ? h('p', { class: 'metric-text' }, `Fark belirsizliği aşıyor: ${m.sense}. Bu bir gözlemdir, tanı değildir.`)

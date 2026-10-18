@@ -756,22 +756,22 @@ const insightScreen = async (page, r) => {
   await page.waitFor("document.getElementById('insight-regions') !== null", 30000);
   const st = await page.eval('window.__icgorInsight.regions');
   r.metrics.regions = st;
-  // Kol kaldırma farkı (24°) doğrulama bekliyor → omuzlar yalnızca duruş ölçümüyle değerlendirilir (yeşil), renk üretmez
-  const want = { 'bas-boyun': 'turuncu', 'omuz-L': 'yesil', 'omuz-R': 'yesil', govde: 'yesil', 'diz-L': 'gri', denge: 'gri' };
+  // Kol kaldırma farkı yalnızca sentetik doğrulandı (deneysel) → iki taramada sürse bile en fazla sarı
+  const want = { 'bas-boyun': 'turuncu', 'omuz-L': 'sari', 'omuz-R': 'sari', govde: 'yesil', 'diz-L': 'gri', denge: 'gri' };
   for (const [k, v] of Object.entries(want)) if (st[k] !== v) r.problems.push(`${k}: ${st[k]} (beklenen ${v})`);
   const sm = await page.eval("document.getElementById('insight-summary').textContent");
-  if (!/3 ölçümün 2'si yeterli görüntü kalitesiyle/.test(sm)) r.problems.push(`özet kalite cümlesi yanlış: ${sm.slice(0, 160)}`);
-  if (!/Kolları yandan kaldırma: ölçüm güvenilir değil, tekrar deneyin/.test(sm)) r.problems.push('özette kol ölçümünün güvenilmez olduğu yazmıyor');
+  if (!/3 ölçümün 3'ü yeterli görüntü kalitesiyle/.test(sm)) r.problems.push(`özet kalite cümlesi yanlış: ${sm.slice(0, 160)}`);
   const forbidden = (await page.eval('document.body.innerText')).match(/hastalık riski|teşhis edildi|risk puanı|fıtığınız|skolyozunuz|kas yırtığınız var/i);
   if (forbidden) r.problems.push(`yasak ifade: ${forbidden[0]}`);
   await noOverflow(page, r);
   await shot(page, r, 'ekran');
-  // Sağ omuz: kol farkı güvenilmez → sayı yok, "Ölçüm güvenilir değil, tekrar deneyin"
+  // Sağ omuz (deneysel kol ölçümü): somut cümle + deneysel uyarısı; turuncu değil
   await page.eval("document.querySelector('.mark[data-region=\"omuz-R\"]').dispatchEvent(new MouseEvent('click', {bubbles:true}))");
   await page.waitFor("document.getElementById('insight-dialog').open");
   const sh = await page.eval("document.getElementById('insight-card').textContent");
-  if (!/Ölçüm güvenilir değil, tekrar deneyin/.test(sh)) r.problems.push('omuz kartında güvenilmezlik notu yok');
-  if (/24°|152°|128°/.test(sh)) r.problems.push('güvenilmez kol farkı kartta sayı olarak gösterildi');
+  if (!/Sağ kolunu kaldırırken sol koluna göre 24° daha az hareket ölçüldü \(sağ 128°, sol 152°; fark ± 4,2°\)/.test(sh)) r.problems.push('omuz kartında somut cümle yok');
+  if (!/deneysel/i.test(sh)) r.problems.push('omuz kartında deneysel uyarısı yok');
+  if (/Birden fazla ölçümde süren fark/.test(sh)) r.problems.push('deneysel gösterge turuncu gösterildi');
   await shot(page, r, 'kart-omuz', { visual: false });
   await page.eval("document.getElementById('insight-dialog').close()");
   // Turuncu baş-boyun → kart: hangi harekette kaç derece, neden kesin sorun değil, ne yapabilirim

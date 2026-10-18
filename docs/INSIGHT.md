@@ -92,3 +92,32 @@ ses yoksa anlaşılır hata gösterilir; yazılı özellik eksiksiz çalışır.
 
 Not: tarayıcı testleri sentetik/elle yazılmış ölçüm verisiyle yapılır; **gerçek kişi ve gerçek cihaz doğrulaması
 yapılmadı.** Renk eşikleri (2u, iki ölçüm) istatistiksel karar kuralıdır; klinik eşik değildir.
+
+## Kol kaldırma hatası ve düzeltmesi (v0.7)
+
+**Belirti:** sentetik simetrik kol kaldırmada (iki kol aynı açıda) gerçekte olmayan **−21,5°** sağ–sol fark
+"ayırt edilebilir" ölçüldü; sağ kol açısı **+16,6°** fazla çıktı. Aynı hata hem kamera koçunda hem tarama ekranındaki
+kol kaldırma testinde vardı. Bana Anlat'ta bu, sağlıklı bir omzu sarı/turuncu gösterebilirdi.
+
+**Kök neden** (`scripts/arm-diagnose.mjs`): kollar ~120–126° yükselirken MediaPipe iskeleti içe "çöktürüyor":
+omuz noktaları 60–70 px içe kayıp sol/sağ sırası ters dönüyor, dirsek ve bilek orta çizginin karşı tarafına
+geçiyor (171–301 px). Görünürlük puanı 0,95–0,99 kaldığı için görünürlük kapısı bunu yakalayamıyordu. Hata tek
+karede/birkaç karede; ortalama almak çözüm değildi (hatalı kare değeri sonuca karışıyordu).
+
+**Düzeltme** (`src/analysis/frame-check.js`, tarama testi ve kamera koçu ORTAK): kare düzeyinde anatomik tutarlılık —
+omuz sırası = kalça sırası, omuz genişliği ≥ kalibrasyonun %60'ı, her dirsek kendi tarafında (bilek bilerek
+denetlenmez: eller baş üstünde birleşebilir). Tutarsız kare ölçüme katılmaz, sayısı kullanıcıya bildirilir;
+%20'yi aşarsa ölçüm güvenilmez sayılır.
+
+**Doğrulama (yalnızca sentetik):**
+
+| Dizi | Sağ–sol fark ölçülen / gerçek | Açı hatası sol / sağ | Tekrar | Elenen kare |
+|---|---|---|---|---|
+| Simetrik — düzeltme öncesi | −21,5° / −0,1° (ayırt edilebilir!) | −4,8° / +16,6° | 4/4 | — |
+| Simetrik — düzeltme sonrası | 0,1° / −0,1° (ayırt edilemez) | −4,7° / −4,9° | 4/4 | %11 |
+| Asimetrik — düzeltme sonrası | 39,7° / 39,8° (ayırt edilebilir) | −1,2° / −1,1° | 4/4 | %4 |
+
+**Durum:** `validation-status.js` → **deneysel** (gerçek kişi ve gerçek telefonda doğrulanmadı): kol farkı en fazla
+sarı ("tekrar ölçelim") olabilir, asla turuncu olmaz; kartta "deneysel" uyarısı yazar. Düzeltme sırasında geçici
+olarak "güvenilmez" durumundaydı (renk yok, "Ölçüm güvenilir değil, tekrar deneyin"). Bu durum listesi tek kaynaktır:
+kamera koçu, tarama raporu, karşılaştırmalar, gelişim paneli, Bana Anlat ve asistan aynı kuralı uygular.

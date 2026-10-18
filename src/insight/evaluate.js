@@ -64,7 +64,7 @@ function item({ source, id, test, view, regions, kind, m, scan, conditions, flag
   return {
     unreliable: measured && vs.status === 'guvenilmez' ? vs.why : null,
     source, id, test, view, regions, kind, tr: m.tr, unit: m.unit, value: m.value, u: m.u, grade: m.grade ?? null,
-    experimental: Boolean(m.experimental), measured, reliable, flagged: reliable ? flagged : null, sign, sense,
+    experimental: Boolean(m.experimental) || vs.status === 'deneysel', measured, reliable, flagged: reliable ? flagged : null, sign, sense,
     date: scan?.date ?? null, scanId: scan?.id ?? null, conditions: conditions ?? null, discomfort, sides,
     levelUnknown: conditions?.level === 'unknown',
   };

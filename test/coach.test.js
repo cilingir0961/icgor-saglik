@@ -74,14 +74,13 @@ test('kameraya doğru kısalan segment o karede ölçülmez', () => {
   assert.equal(r.angle.L, null);
 });
 
-test('kol kaldırma: doğrulama listesinde "güvenilmez" → tekrar sayılır, açı/fark/yorum gösterilmez', () => {
+test('kol kaldırma: deneysel durum → açılar ve fark gösterilir (2u kuralıyla); tekrar sayımı aynı', () => {
   const c = createCoach('arm-raise');
   run(c, (t) => { const k = Math.sin(((t % 2) / 2) * Math.PI); return armFrame(20 + 140 * k, 20 + 100 * k); }, 8.5);
   const s = c.summary();
-  assert.equal(s.reps, 4, 'tekrar sayımı etkilenmez');
-  assert.equal(s.angleUnreliable, true);
-  assert.equal(s.asym, null); assert.equal(s.sides, null); assert.deepEqual(s.observations, []);
-  assert.match(s.angleNote, /Ölçüm güvenilir değil, tekrar deneyin/);
+  assert.equal(s.reps, 4);
+  assert.equal(s.angleUnreliable, false);
+  assert.equal(s.asym.distinguishable, true);
 });
 
 test('kol kaldırma algoritması (doğrulama kapısı kapalı, yalnızca kıyas için): iki kol ayrı; fark 2u kuralı', () => {

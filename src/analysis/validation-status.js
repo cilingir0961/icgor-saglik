@@ -11,13 +11,16 @@ export const STATUS_TEXT = {
 
 /** Anahtar biçimi: tarama hareket testi 'kol-kaldirma:abductionAsym', koç 'coach:arm-raise:asym'. */
 export const METRIC_STATUS = {
-  // Sentetik simetrik kol kaldırmada sağ kol +16,6° fazla ölçüldü (gerçekte olmayan ~21° sağ–sol fark);
-  // ayrıntı: docs/bench/coach-bench-summary.json, docs/INSIGHT.md "Kol kaldırma hatası".
-  'kol-kaldirma:abductionAsym': { status: 'guvenilmez', why: 'Kol başın üstüne yaklaştığında vücut takibi dirsek noktasını yanlış yerleştirebiliyor; sentetik testte gerçekte olmayan ~21° sağ–sol fark ölçüldü. Düzeltme doğrulanana kadar bu ölçümden sonuç çıkarılmıyor.' },
-  'kol-kaldirma:abductionL': { status: 'guvenilmez', why: 'Kol kaldırma açısı doğrulama bekliyor.' },
-  'kol-kaldirma:abductionR': { status: 'guvenilmez', why: 'Kol kaldırma açısı doğrulama bekliyor.' },
-  'coach:arm-raise:asym': { status: 'guvenilmez', why: 'Kamera koçunun kol kaldırma sağ–sol karşılaştırması doğrulama bekliyor.' },
-  'coach:arm-raise:extreme': { status: 'guvenilmez', why: 'Kamera koçunun kol kaldırma açısı doğrulama bekliyor.' },
+  // Kol kaldırma: sentetik simetrik dizide sağ kol +16,6° fazla ölçülüyordu (MediaPipe ~120–126°'de iskeleti
+  // çökertiyor). Kare düzeyinde anatomik tutarlılık kapısıyla (frame-check.js) yeniden ölçüldü: simetrik fark
+  // 0,1° (gerçek −0,1°), asimetrik fark 39,7° (gerçek 39,8°), en büyük açı hatası 4,9° < 6°; tekrar sayımı
+  // değişmedi (docs/bench/coach-bench-summary.json). YALNIZCA SENTETİK doğrulama → gerçek cihaz/kişi
+  // doğrulanana kadar 'deneysel': en fazla "tekrar ölç" (sarı), asla turuncu.
+  'kol-kaldirma:abductionAsym': { status: 'deneysel', why: 'Kol kaldırma ölçümü yalnızca sentetik figürle doğrulandı; gerçek kişilerde doğruluğu henüz ölçülmedi.' },
+  'kol-kaldirma:abductionL': { status: 'deneysel', why: 'Yalnızca sentetik figürle doğrulandı.' },
+  'kol-kaldirma:abductionR': { status: 'deneysel', why: 'Yalnızca sentetik figürle doğrulandı.' },
+  'coach:arm-raise:asym': { status: 'deneysel', why: 'Kamera koçu kol karşılaştırması yalnızca sentetik figürle doğrulandı.' },
+  'coach:arm-raise:extreme': { status: 'deneysel', why: 'Yalnızca sentetik figürle doğrulandı.' },
 };
 
 /** @returns {{status:'guvenilmez'|'deneysel'|'normal', why:string|null}} */

@@ -1,0 +1,222 @@
+{
+ "date": "2026-10-18T12:46:55.723Z",
+ "model": "full",
+ "fps": 15,
+ "note": "Sentetik figür (gerçek kişi DEĞİL), kare kare MediaPipe full. Açı yer gerçeği: aynı çözümleyici gerçek eklem noktalarında. Tekrar süresi tanımı: başlangıç eşiğinden bitiş eşiğine (ayakta/kol aşağıda geçen süre hariç).",
+ "rows": {
+  "squat-yavas": {
+   "kind": "squat",
+   "trueReps": 5,
+   "counted": 5,
+   "reliable": true,
+   "coverage": 1,
+   "period": 3,
+   "durationMeasured": 2.5,
+   "extreme": 91,
+   "extremeTruth": 88.7,
+   "extremeErr": 2.3,
+   "asym": null,
+   "asymTruth": null,
+   "asymDistinguishable": null
+  },
+  "squat-hizli": {
+   "kind": "squat",
+   "trueReps": 6,
+   "counted": 6,
+   "reliable": true,
+   "coverage": 1,
+   "period": 1.6,
+   "durationMeasured": 1.3,
+   "extreme": 90.4,
+   "extremeTruth": 89,
+   "extremeErr": 1.4,
+   "asym": null,
+   "asymTruth": null,
+   "asymDistinguishable": null
+  },
+  "squat-yarim": {
+   "kind": "squat",
+   "trueReps": 5,
+   "counted": 5,
+   "reliable": true,
+   "coverage": 1,
+   "period": 2.5,
+   "durationMeasured": 1.8,
+   "extreme": 128.9,
+   "extremeTruth": 128.6,
+   "extremeErr": 0.3,
+   "asym": null,
+   "asymTruth": null,
+   "asymDistinguishable": null
+  },
+  "otur-kalk": {
+   "kind": "sit-to-stand",
+   "trueReps": 5,
+   "counted": 5,
+   "reliable": true,
+   "coverage": 1,
+   "period": 3,
+   "durationMeasured": 2.3,
+   "extreme": 97.5,
+   "extremeTruth": 91.5,
+   "extremeErr": 6,
+   "asym": null,
+   "asymTruth": null,
+   "asymDistinguishable": null
+  },
+  "kucuk-salinim": {
+   "kind": "squat",
+   "trueReps": 0,
+   "counted": 0,
+   "reliable": false,
+   "coverage": 1,
+   "period": 2,
+   "durationMeasured": null,
+   "extreme": null,
+   "extremeTruth": null,
+   "extremeErr": null,
+   "asym": null,
+   "asymTruth": null,
+   "asymDistinguishable": null
+  },
+  "kol-simetrik": {
+   "kind": "arm-raise",
+   "trueReps": 4,
+   "counted": 4,
+   "reliable": true,
+   "coverage": 0.89,
+   "period": 3,
+   "durationMeasured": 2.3,
+   "extreme": 145.8,
+   "extremeTruth": 150.5,
+   "extremeErr": -4.7,
+   "perSideErr": {
+    "L": -4.7,
+    "R": -4.9
+   },
+   "asym": 0.1,
+   "asymTruth": -0.1,
+   "asymDistinguishable": false,
+   "scanTest": {
+    "L": -4.7,
+    "R": -4.9,
+    "asym": 0.1,
+    "asymTruth": -0.1,
+    "u": 8.5,
+    "distinguishable": false
+   }
+  },
+  "kol-asimetrik": {
+   "kind": "arm-raise",
+   "trueReps": 4,
+   "counted": 4,
+   "reliable": true,
+   "coverage": 0.96,
+   "period": 3,
+   "durationMeasured": 2.3,
+   "extreme": 154.9,
+   "extremeTruth": 156.1,
+   "extremeErr": -1.2,
+   "perSideErr": {
+    "L": -1.2,
+    "R": -1.1
+   },
+   "asym": 39.7,
+   "asymTruth": 39.8,
+   "asymDistinguishable": true,
+   "scanTest": {
+    "L": -1.2,
+    "R": -1.1,
+    "asym": 39.7,
+    "asymTruth": 39.8,
+    "u": 8.5,
+    "distinguishable": true
+   }
+  }
+ },
+ "summary": {
+  "sequences": 7,
+  "repsExact": 7,
+  "angleErrMaxAbs": 6,
+  "angleErrRms": 3.4
+ },
+ "armRaiseFix": {
+  "problem": "Kollar ~120–126° yükselirken MediaPipe iskeleti içe çöktürüyor (omuzlar 60–70 px içe, sol/sağ sırası ters, dirsek orta çizgiyi geçiyor; görünürlük 0,95–0,99). scripts/arm-diagnose.mjs",
+  "before": {
+   "sequence": "kol-simetrik",
+   "asym": -21.5,
+   "asymTruth": -0.1,
+   "distinguishable": true,
+   "perSideErr": {
+    "L": -4.8,
+    "R": 16.6
+   },
+   "scanTest": {
+    "L": -4.8,
+    "R": 16.6,
+    "asym": -21.5,
+    "asymTruth": -0.1,
+    "u": 8.5,
+    "distinguishable": true
+   }
+  },
+  "fix": "src/analysis/frame-check.js — omuz sırası = kalça sırası, omuz genişliği ≥ %60 kalibrasyon, dirsek kendi tarafında; tutarsız kare ölçüme katılmaz (tarama testi ve kamera koçu ortak).",
+  "after": {
+   "simetrik": {
+    "kind": "arm-raise",
+    "trueReps": 4,
+    "counted": 4,
+    "reliable": true,
+    "coverage": 0.89,
+    "period": 3,
+    "durationMeasured": 2.3,
+    "extreme": 145.8,
+    "extremeTruth": 150.5,
+    "extremeErr": -4.7,
+    "perSideErr": {
+     "L": -4.7,
+     "R": -4.9
+    },
+    "asym": 0.1,
+    "asymTruth": -0.1,
+    "asymDistinguishable": false,
+    "scanTest": {
+     "L": -4.7,
+     "R": -4.9,
+     "asym": 0.1,
+     "asymTruth": -0.1,
+     "u": 8.5,
+     "distinguishable": false
+    }
+   },
+   "asimetrik": {
+    "kind": "arm-raise",
+    "trueReps": 4,
+    "counted": 4,
+    "reliable": true,
+    "coverage": 0.96,
+    "period": 3,
+    "durationMeasured": 2.3,
+    "extreme": 154.9,
+    "extremeTruth": 156.1,
+    "extremeErr": -1.2,
+    "perSideErr": {
+     "L": -1.2,
+     "R": -1.1
+    },
+    "asym": 39.7,
+    "asymTruth": 39.8,
+    "asymDistinguishable": true,
+    "scanTest": {
+     "L": -1.2,
+     "R": -1.1,
+     "asym": 39.7,
+     "asymTruth": 39.8,
+     "u": 8.5,
+     "distinguishable": true
+    }
+   }
+  },
+  "status": "deneysel (yalnızca sentetik doğrulama; gerçek cihaz/kişi doğrulanmadı)"
+ }
+}

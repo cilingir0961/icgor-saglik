@@ -218,9 +218,10 @@ Ayrıntılı tablo ve gerçek kişi protokolü: [`VALIDATION.md`](VALIDATION.md)
   karşılaştırılabilir koşullarda ≥ 2 güvenilir ölçüm; gri: ölçüm yok/düşük güvenilirlik. Kırmızı yok. Deneysel
   gösterge en fazla sarı. Ayrıntı: docs/INSIGHT.md.
 - **Bölgeye yalnızca onu ölçen gösterge bağlanır;** kameranın göremediği yapılar için bölge tanımlanmadı.
-- **Kamera koçu kol açısı gövde eksenine göre** (movement.js ile tek tanım). Aynı taraf kalça noktasıyla tanım,
-  sentetik simetrik dizide 23° sahte sağ–sol fark (sağ +16,9°) üretti; bu, Bana Anlat'ta yanlış sarı işarete
-  dönüşecekti. Tolerans gevşetilmedi; tanım düzeltildi ve yeniden ölçüldü (docs/bench/coach-bench-summary.json).
+- **Kol kaldırma: kare düzeyinde anatomik tutarlılık kapısı** (`frame-check.js`, tarama testi + kamera koçu ortak).
+  Gövde ekseni tanımına geçmek sahte farkı gidermedi; kök neden MediaPipe'ın ~120–126°'de iskeleti çöktürmesiydi.
+  Tolerans gevşetilmedi; tutarsız kareler çıkarıldı ve yeniden ölçüldü (docs/INSIGHT.md, docs/bench/coach-bench-summary.json).
+- **Tek doğrulama durumu listesi** (`validation-status.js`): 'güvenilmez' → renk/yorum yok; 'deneysel' → en fazla sarı.
 - **3B işaretler HTML katmanı** (WebGL nesnesi değil): erişilebilir düğmeler, ekran okuyucu etiketi, her çizimde
   `projectPoint` ile yerleşim; etiketler vücut ekseninden dışa açılır. Bana Anlat açılınca vücut baştan ayağa çerçevelenir.
 - **Sesli anlatım yalnızca `localService` Türkçe sesle;** çevrim içi sesler metni dışarı gönderebileceği için seçilmez.
