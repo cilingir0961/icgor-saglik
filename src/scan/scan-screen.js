@@ -19,6 +19,7 @@ import { Voice } from './voice.js';
 import { Tilt } from './tilt.js';
 import { renderReport } from './report.js';
 import { h, fmt, icon } from './dom.js';
+import { summaryCard } from '../insight/insight-screen.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -494,7 +495,10 @@ export async function createScanScreen() {
   }
 
   function report(scan) {
+    // Vücudumun Özeti: yalnızca en son tarama için (Bana Anlat değerlendirmesi son taramayı kullanır)
+    const isLatest = store.state.scans.at(-1)?.id === scan.id;
     const node = h('div', { class: 'scan-report-page' },
+      isLatest ? summaryCard(store, { compact: true }) : null,
       renderReport(scan, {
         history: store.state.scans, onShow3D: show3D, twin: twinOf(scan),
         onExport: () => download(`icgor-tarama-${scan.date.slice(0, 10)}.json`, JSON.stringify(scan, null, 2)),
@@ -585,7 +589,10 @@ export async function createScanScreen() {
   home();
   dbg.api = { home, consent, profile, startPosture, startMovement, report, history, dataControls, movementList, safety };
   return {
-    activate() {},
+    activate() {
+      // "Ölçümü tekrarla" (Bana Anlat) → hareket testleri listesi; rıza/profil yoksa ana akış onları ister
+      if (location.hash.includes('?hareket') && !run && store.state.consent && store.state.profile?.heightCm) movementList();
+    },
     deactivate() { if (run) run.cancel(); closeCamera(); },
   };
 }

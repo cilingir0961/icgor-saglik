@@ -722,6 +722,108 @@ const coachCamera = async (page, r) => {
   if (await page.eval("!!document.getElementById('coach-layer')")) r.problems.push('katman kapanmadı');
 };
 
+// ---------------- v0.7: Bana Anlat ----------------
+
+/** Ölçülmüş gibi kaydedilmiş tarama (test verisi; uygulama akışıyla aynı biçim). */
+function insightScan(date, { armL = 152, armR = 128, trunk = 3.6 } = {}) {
+  const c = (view) => ({ view, model: 'full', heightFrac: 0.8, level: 'known', facing: view === 'side' ? 'right' : null, mode: 'helper' });
+  const pm = (tr, value, u, sense) => ({ tr, unit: '°', value, u, grade: 'iyi', experimental: false, neutral: 0, distinguishable: Math.abs(value) > 2 * u, sense });
+  const m = (tr, value, u) => ({ tr, unit: '°', value, u, grade: 'iyi', experimental: false });
+  const L = m('Sol kol kaldırma açısı (en yüksek)', armL, 3), R = m('Sağ kol kaldırma açısı (en yüksek)', armR, 3);
+  return {
+    id: `t${date}`, date: `2026-${date}T10:00:00.000Z`, model: 'full', profile: { heightCm: 172 },
+    captures: { front: { conditions: c('front'), frames: 30, metrics: {
+      shoulderLevel: pm('Omuz seviyesi', 0.6, 1.2, 'sol omuz daha yüksek'),
+      trunkLateral: pm('Gövdenin yana eğilimi', trunk, 1.3, 'gövde kişinin soluna eğik'),
+      headTilt: pm('Başın yana eğimi', 0.5, 1.5, 'baş sağa eğik'),
+    } } },
+    movements: { 'kol-kaldirma': { tr: 'Kolları yandan kaldırma', conditions: c('front'), reps: { L: 3, R: 3 }, samples: 120, metrics: {
+      abductionL: L, abductionR: R, abductionAsym: { tr: 'Sağ–sol fark (kol kaldırma)', unit: '°', value: armL - armR, u: 4.2, grade: 'iyi', experimental: false },
+    } } },
+  };
+}
+const insightState = () => baseState({ scans: [insightScan('10-04'), insightScan('10-17', { trunk: 0.4 })], trainer: { plan: null, progress: {}, history: [], paused: false }, activity: { goalMode: 'auto', goal: null, days: {}, habits: {} } });
+
+const insightScreen = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/anlat`);
+  await seed(page, insightState());
+  await page.goto(`${base}/index.html?nosw&t=1#/anlat`);
+  await page.waitFor("document.getElementById('insight-regions') !== null", 30000);
+  const st = await page.eval('window.__icgorInsight.regions');
+  r.metrics.regions = st;
+  const want = { 'omuz-L': 'turuncu', 'omuz-R': 'turuncu', govde: 'yesil', 'bas-boyun': 'yesil', 'diz-L': 'gri', denge: 'gri' };
+  for (const [k, v] of Object.entries(want)) if (st[k] !== v) r.problems.push(`${k}: ${st[k]} (beklenen ${v})`);
+  const sm = await page.eval("document.getElementById('insight-summary').textContent");
+  if (!/2 ölçümün 2'si yeterli görüntü kalitesiyle/.test(sm)) r.problems.push('özet kalite cümlesi yanlış');
+  const forbidden = (await page.eval('document.body.innerText')).match(/hastalık riski|teşhis edildi|risk puanı|fıtığınız|skolyozunuz|kas yırtığınız var/i);
+  if (forbidden) r.problems.push(`yasak ifade: ${forbidden[0]}`);
+  await noOverflow(page, r);
+  await shot(page, r, 'ekran');
+  // Turuncu sağ omuza dokun → kart: hangi harekette kaç derece, neden kesin sorun değil, ne yapabilirim
+  await page.eval("document.querySelector('.mark[data-region=\"omuz-R\"]').dispatchEvent(new MouseEvent('click', {bubbles:true}))");
+  await page.waitFor("document.getElementById('insight-dialog').open");
+  const card = await page.eval("document.getElementById('insight-card').textContent"); // kapalı bölümler dahil
+  r.metrics.cardExcerpt = card.slice(0, 400);
+  for (const re of [/Kolları yandan kaldırma sırasında sol taraf 24° daha fazla/, /sol 152°, sağ 128°/, /± 4,2°/, /sağlık sorunu olduğunu göstermez/, /Bu ne demek\?/, /Ne yapabilirim\?/, /2 ayrı ölçümde aynı yönde/]) {
+    if (!re.test(card)) r.problems.push(`kartta yok: ${re}`);
+  }
+  await page.eval("document.getElementById('btn-insight-reco').click()");
+  const reco = await page.eval("[...document.querySelectorAll('#insight-reco [data-ex]')].map(e => e.dataset.ex)");
+  r.metrics.reco = reco;
+  if (!reco.length || reco.includes('bant-kurek')) r.problems.push(`öneriler süzülmedi: ${reco}`);
+  await shot(page, r, 'kart', { visual: false });
+  // Belirti bildirimi → öneri kilitlenir
+  await page.eval("document.getElementById('insight-symptom').click()");
+  if (!(await page.eval("!!document.getElementById('insight-blocked')"))) r.problems.push('ağrı/uyuşma işaretlenince öneri kilitlenmedi');
+  // Sesli anlatım: yalnızca cihaz içi Türkçe ses; yoksa anlaşılır hata (başsız Chromium'da Türkçe ses yok)
+  await page.eval("document.getElementById('btn-insight-speak').click()");
+  r.metrics.speak = await page.eval("document.getElementById('insight-speak-err').textContent || document.getElementById('btn-insight-speak').textContent");
+  await page.eval("document.getElementById('insight-dialog').close()");
+  await page.eval("document.getElementById('btn-large-text').click()");
+  if (!(await page.eval("document.body.classList.contains('large-text')"))) r.problems.push('büyük yazı uygulanmadı');
+  await noOverflow(page, r);
+  await page.eval("document.getElementById('btn-large-text').click()");
+};
+
+const insightEmpty = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/anlat`);
+  await seed(page, baseState());
+  await page.goto(`${base}/index.html?nosw&t=1#/anlat`);
+  await page.waitFor("document.getElementById('insight-regions') !== null", 30000);
+  const st = await page.eval('window.__icgorInsight.regions');
+  if (Object.values(st).some((v) => v !== 'gri')) r.problems.push(`veri yokken gri olmayan bölge: ${JSON.stringify(st)}`);
+  if (!/Henüz tarama yok/.test(await page.eval("document.getElementById('insight-summary').textContent"))) r.problems.push('boş durum metni yok');
+  await page.goto(`${base}/index.html?nosw&t=2#/bugun`);
+  await page.waitFor("document.getElementById('today-insight') !== null", 30000);
+  if (!/Taramaya başla/.test(await page.eval("document.getElementById('today-insight').textContent"))) r.problems.push('Bugün kartı veri yokken taramaya yönlendirmiyor');
+};
+
+const insight3d = async (page, r, dev) => {
+  await page.goto(`${base}/index.html?nosw#/bugun`);
+  await seed(page, insightState());
+  await page.goto(`${base}/index.html?nosw&t=3#/bugun`);
+  await page.waitFor("document.getElementById('today-insight') !== null", 30000);
+  if (!/Sol omuz|Sağ omuz/.test(await page.eval("document.getElementById('today-insight').textContent"))) r.problems.push('Bugün kartında dikkat çeken bölge yok');
+  await page.eval("location.hash = '#/anatomi?anlat=omuz-R'");
+  await page.waitFor("document.body.dataset.anatomyReady==='true'", 90000);
+  await page.waitFor("document.querySelectorAll('#insight-markers .imark').length === 8", 20000);
+  await page.waitFor("document.getElementById('insight-dialog').open", 10000);
+  await sleep(800);
+  const m = await page.eval("[...document.querySelectorAll('#insight-markers .imark')].map(b => ({id: b.dataset.region, cls: b.className, hidden: b.hidden, r: b.getBoundingClientRect().toJSON()}))");
+  r.metrics.markers = m.map((x) => `${x.id}:${x.cls.split(' ')[1]}`);
+  const vp = await page.eval("document.getElementById('anatomy-viewport').getBoundingClientRect().toJSON()");
+  for (const x of m) if (x.hidden || x.r.x < vp.x - 30 || x.r.x > vp.x + vp.width) r.problems.push(`işaret görünür alan dışında: ${x.id}`);
+  const sh = { L: m.find((x) => x.id === 'omuz-L').r, R: m.find((x) => x.id === 'omuz-R').r };
+  if (!(sh.R.x < sh.L.x)) r.problems.push('önden bakışta sağ omuz işareti ekranın solunda değil');
+  if (!/Sağ omuz/.test(await page.eval("document.getElementById('insight-card-title').textContent"))) r.problems.push('3B işaretten kart açılmadı');
+  await shot(page, r, 'kart-3b', { visual: false });
+  await page.eval("document.getElementById('insight-dialog').close()");
+  await sleep(300);
+  await shot(page, r, 'isaretler', { visual: false });
+  await page.eval("document.getElementById('btn-insight').click()");
+  if (!(await page.eval("document.getElementById('insight-markers').hidden"))) r.problems.push('Bana Anlat kapatılamadı');
+};
+
 // ---------------- Koşucu ----------------
 
 async function main() {
@@ -756,6 +858,11 @@ async function main() {
     await scenario('bildirim-izin', 'android', notifyFlow, browser);
     await scenario('bildirim-ret', 'iphone', notifyDenied, browser);
     await scenario('gelisim-verilerim', 'iphone', progressData, browser);
+    await scenario('bana-anlat', 'iphone', insightScreen, browser);
+    await scenario('bana-anlat', 'desktop', insightScreen, browser);
+    await scenario('bana-anlat-bos', 'android', insightEmpty, browser);
+    await scenario('bana-anlat-3b', 'iphone', insight3d, browser);
+    await scenario('bana-anlat-3b', 'desktop', insight3d, browser);
     await scenario('hakkinda-lisans', 'iphone', aboutDialog, browser);
     await scenario('tarama-karsilastirma', 'iphone', scanCompare, browser);
     await scenario('tarama-guvenlik', 'iphone', scanSafety, browser);

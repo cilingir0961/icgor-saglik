@@ -6,6 +6,8 @@ import { h, icon, fmt } from '../scan/dom.js';
 import { dayKey, adaptiveGoal, weekStats } from '../activity/steps.js';
 import { BY_ID } from '../fitness/exercises.js';
 import { DAY_NAMES } from '../fitness/planner.js';
+import { evaluate, regionHeadline } from '../insight/evaluate.js';
+import { STATUS } from '../insight/regions.js';
 
 const QUICK = ['Evde ekipmansız 20 dakikalık program hazırla', 'Omuzlarım öne doğru duruyor, hangi hareketleri yapabilirim?', 'Uyku düzenim için ne önerirsin?'];
 
@@ -46,6 +48,7 @@ export async function createTodayScreen() {
     page.replaceChildren(h('div', {},
       h('h2', {}, `Bugün · ${now.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' })}`),
       h('p', { class: 'sub' }, 'Eğitim amaçlı kişisel sağlık ve hareket asistanı. Tıbbi değerlendirme veya teşhis yapmaz.'),
+      insightTile(st),
       h('div', { class: 'grid2' },
         h('section', { class: 'tile', id: 'today-workout' },
           h('h3', {}, icon('i-dumbbell'), 'Antrenman'),
@@ -81,6 +84,17 @@ export async function createTodayScreen() {
           h('a', { class: 'btn', href: '#/bildirimler' }, 'Hatırlatmaları ayarla')))));
     // İlerleme çubuğu genişliği (CSP: satır içi stil yerine CSSOM)
     for (const el of page.querySelectorAll('[data-w]')) el.style.width = `${el.dataset.w}%`;
+  }
+
+  /** "Bana Anlat" kısayolu: yalnızca ölçülmüş verilerden en önemli tek cümle. */
+  function insightTile(st) {
+    const ev = evaluate(st);
+    const top = Object.values(ev.regions).sort((a, b) => STATUS[b.status].rank - STATUS[a.status].rank)[0];
+    const any = Object.values(ev.regions).some((r) => r.status !== 'gri');
+    return h('section', { class: 'tile insight-tile', id: 'today-insight' },
+      h('div', { class: 'row-between' }, h('h3', {}, icon('i-explain'), 'Bana Anlat'), any ? h('span', { class: `istatus ${top.status}` }, STATUS[top.status].tr) : null),
+      h('p', {}, any ? (top.status === 'sari' || top.status === 'turuncu' ? regionHeadline(top) : 'Ölçülen bölgelerde belirgin bir fark görülmedi.') : 'Vücudunda nerelere dikkat etmen gerektiğini anlatabilmemiz için önce kısa bir duruş/hareket taraması yap.'),
+      h('a', { class: 'btn primary', id: 'btn-today-insight', href: any ? '#/anlat' : '#/tarama' }, any ? 'Vücudumda nerelere dikkat etmeliyim?' : 'Taramaya başla'));
   }
 
   function counter(label, value, onDelta, id) {

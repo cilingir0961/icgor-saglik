@@ -86,3 +86,12 @@ test('egzersizi kolaylaştır/zorlaştır/değiştir ve oturumu ertele', () => {
   assert.equal(sun.plan.sessions[5].day, 'Pazar', 'cumartesi oturumu boş pazara kayar');
   assert.equal(postpone(sun.plan, 5).ok, false, 'hafta içinde boş gün kalmadıysa ertelenemez');
 });
+
+test('uyuşma veya güç kaybı → plan durur, yük artmaz, uzmana yönlendirme', () => {
+  for (const k of ['numbness', 'weakness']) {
+    const r = applyFeedback({}, { feeling: 'kolay', [k]: true }, ['squat']);
+    assert.equal(r.paused, true);
+    assert.deepEqual(r.increased, []);
+    assert.match(r.messages[0], /hekime veya fizyoterapiste/);
+  }
+});

@@ -1,7 +1,7 @@
 // Kamera koçu doğrulaması (sentetik figür + MediaPipe, kare kare). Her dizi için bilinen tekrar sayısı ve
 // tekrar süresi; açı yer gerçeği aynı koçun gerçek eklem noktalarına uygulanmasıyla bulunur. Gerçek kişi değildir:
 // sonuçlar "sentetik" olarak raporlanır, insan doğruluğu iddiası taşımaz.
-// Kullanım: node scripts/coach-bench.mjs [model] [çıktı.json]
+// Kullanım: node scripts/coach-bench.mjs [model] [çıktı.json] [dizi1,dizi2 — yalnızca bunlar]
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { serve, launchChrome } from './lib/cdp.mjs';
@@ -10,6 +10,7 @@ import { MP } from '../src/analysis/geometry.js';
 
 const MODEL = process.argv[2] ?? 'full';
 const OUT = resolve(process.argv[3] ?? `.cache/bench/coach-bench-${MODEL}.json`);
+const ONLY = process.argv[4]?.split(',') ?? null;
 const W = 480, H = 640, FPS = 15;
 const CAM = { dist: 2.6, camY: 0.95 };
 const Y = Math.PI / 2;
@@ -56,6 +57,7 @@ async function main() {
   const out = {};
   try {
     for (const [id, S] of Object.entries(SEQS)) {
+      if (ONLY && !ONLY.includes(id)) continue;
       const A = createCoach(S.kind, { width: W, height: H });
       const T = createCoach(S.kind, { width: W, height: H });
       for (const [i, p] of S.frames.entries()) {

@@ -8,7 +8,7 @@
 //  - Sistematik belirsizlik uSys = 6° (scripts/movement-bench.mjs: MediaPipe full, taraf başına 3,2° ve −5,9°;
 //    coach-bench.mjs bu modül için ayrıca ölçer). Sağ–sol fark yalnızca |fark| > 2u ise "ayırt edilebilir".
 
-import { MP, angleAt, dist, median, mad } from '../analysis/geometry.js';
+import { MP, angleAt, dist, median, mad, mid, sub, add } from '../analysis/geometry.js';
 
 export const U_SYS = 6;
 const VIS = 0.6;
@@ -36,7 +36,15 @@ export const COACH_KINDS = {
   'arm-raise': {
     tr: 'Kol kaldırma', view: 'front', dir: 'up', joint: 'omuz', start: 70, end: 55, minDepth: 40, perSide: true,
     setup: 'Telefonu göğüs hizasında, 2 m uzağa koyun ve kameraya dönün; kollarınız ve kalçanız görünsün.',
-    chain: ['Hip', 'Shoulder', 'Elbow'], ref: [['Shoulder', 'Elbow']],
+    chain: ['Shoulder', 'Elbow'], ref: [['Shoulder', 'Elbow']], both: ['leftHip', 'rightHip', 'leftShoulder', 'rightShoulder'],
+    // Gövde ekseni (omuz ortası → kalça ortası) ile üst kol arasındaki açı; movement.js kol kaldırma testiyle aynı
+    // tanım. Aynı taraftaki kalça noktasını kullanmak, simetrik harekette 23° sahte sağ–sol fark üretti
+    // (scripts/coach-bench.mjs, kol-simetrik dizisi).
+    angle: (lm, s, w, h) => {
+      const sh = pt(lm, `${s}Shoulder`, w, h);
+      const axis = sub(mid(pt(lm, 'leftHip', w, h), pt(lm, 'rightHip', w, h)), mid(pt(lm, 'leftShoulder', w, h), pt(lm, 'rightShoulder', w, h)));
+      return angleAt(add(sh, axis), sh, pt(lm, `${s}Elbow`, w, h));
+    },
   },
 };
 
@@ -66,9 +74,10 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {
   const dts = [];
 
   function sideAngle(lm, s) {
-    const keys = K.chain.map((k) => `${s}${k}`);
+    const keys = [...K.chain.map((k) => `${s}${k}`), ...(K.both ?? [])];
     if (!keys.every((k) => vis(lm, k) > VIS)) return { a: NaN, lens: null };
     const lens = K.ref.map(([a, b]) => dist(pt(lm, `${s}${a}`, width, height), pt(lm, `${s}${b}`, width, height)));
+    if (K.angle) return { a: K.angle(lm, s, width, height), lens };
     const [a, b, c] = keys.map((k) => pt(lm, k, width, height));
     return { a: angleAt(a, b, c), lens };
   }

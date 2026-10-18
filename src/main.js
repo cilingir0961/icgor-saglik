@@ -5,7 +5,7 @@ import { loadManifest } from './three/assets.js';
 
 const ROUTES = {
   '#/bugun': 'today', '#/antrenman': 'trainer', '#/asistan': 'assistant', '#/tarama': 'scan', '#/anatomi': 'anatomy',
-  '#/aktivite': 'activity', '#/gelisim': 'progress', '#/bildirimler': 'notify', '#/verilerim': 'data',
+  '#/anlat': 'insight', '#/aktivite': 'activity', '#/gelisim': 'progress', '#/bildirimler': 'notify', '#/verilerim': 'data',
   '#/kamera': 'camera', '#/goruntu': 'imaging',
 };
 const screens = {};
@@ -16,6 +16,7 @@ const loaders = {
   today: () => import('./today/today-screen.js').then((m) => m.createTodayScreen()),
   trainer: () => import('./fitness/trainer-screen.js').then((m) => m.createTrainerScreen()),
   assistant: () => import('./assistant/assistant-screen.js').then((m) => m.createAssistantScreen()),
+  insight: () => import('./insight/insight-screen.js').then((m) => m.createInsightScreen()),
   activity: () => import('./activity/activity-screen.js').then((m) => m.createActivityScreen()),
   progress: () => import('./progress/progress-screen.js').then((m) => m.createProgressScreen()),
   notify: () => import('./notify/notify-screen.js').then((m) => m.createNotifyScreen()),
@@ -112,6 +113,7 @@ route();
 
 // Hatırlatmalar: kullanıcı açtıysa (ve izin verdiyse) uygulama açıkken zamanlayıcı çalışır
 import('./scan/store.js').then(({ getStore }) => {
+  document.body.classList.toggle('large-text', Boolean(getStore().state.settings?.largeText));
   if (getStore().state.notify?.enabled) return import('./notify/runtime.js').then((m) => m.start());
 }).catch((e) => console.warn('hatırlatma zamanlayıcısı', e));
 

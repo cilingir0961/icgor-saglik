@@ -405,10 +405,74 @@ export async function createAnatomyScreen() {
   }
   $('btn-reset').addEventListener('click', clearTwin);
 
+  // ---- "Bana Anlat": ölçülen bölgelerin dokunulabilir işaretleri (yalnızca ölçüm verisinden) ----
+  const markerBox = $('insight-markers');
+  let insightOn = false, insightMod = null, markers = [];
+  async function setInsight(on, regionId = null) {
+    insightOn = on;
+    $('btn-insight').setAttribute('aria-pressed', String(on));
+    markerBox.hidden = !on;
+    document.body.classList.toggle('insight-on', on);
+    if (!on) { markerBox.textContent = ''; markers = []; viewer.setHighlight(null); return; }
+    viewer.frameFullBody();
+    insightMod ??= await Promise.all([import('../insight/evaluate.js'), import('../insight/card.js'), import('../insight/regions.js'), import('../scan/store.js')]);
+    const [{ evaluate }, { openInsightCard }, { BODY_REGIONS, STATUS }, { getStore }] = insightMod;
+    const store = getStore();
+    const ev = evaluate(store.state);
+    const joints = viewer.manifest?.joints ?? {};
+    markerBox.textContent = '';
+    markers = Object.values(ev.regions).map((r) => {
+      const R = BODY_REGIONS[r.id];
+      const j = R.joint && joints[R.joint];
+      const anchor = j ? [j[0], j[1], j[2] + 0.06] : R.anchor;
+      const b = document.createElement('button');
+      b.className = `imark ${r.status}`;
+      b.dataset.region = r.id;
+      b.setAttribute('aria-label', `${r.tr}: ${STATUS[r.status].tr}`);
+      const dot = document.createElement('span');
+      dot.className = 'imark-dot';
+      const t = document.createElement('span');
+      t.className = 'imark-label';
+      t.textContent = R.short;
+      b.append(dot, t);
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        viewer.setHighlight(R.highlight);
+        openInsightCard(r.id, { store, from: 'anatomy' });
+      });
+      markerBox.append(b);
+      return { el: b, anchor };
+    });
+    window.__icgorInsight = { ...(window.__icgorInsight ?? {}), markers: Object.fromEntries(Object.values(ev.regions).map((r) => [r.id, r.status])) };
+    placeMarkers();
+    viewer.requestRender?.();
+    if (regionId && ev.regions[regionId]) { viewer.setHighlight(BODY_REGIONS[regionId].highlight); openInsightCard(regionId, { store, from: 'anatomy' }); }
+  }
+  function placeMarkers() {
+    // Etiketler vücut ekseninden dışa doğru açılır: eksenin solundaki işaretin etiketi sola (üst üste binmesin)
+    const axis = viewer.projectPoint([0, 1, 0])?.x ?? viewer.width / 2;
+    for (const m of markers) {
+      const p = viewer.projectPoint(m.anchor);
+      m.el.hidden = !p;
+      if (!p) continue;
+      const flip = p.x < axis - 12;
+      m.el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)${flip ? ' translateX(calc(-100% + 28px))' : ''}`;
+      m.el.classList.toggle('behind', !p.front);
+      m.el.classList.toggle('flip', flip);
+    }
+  }
+  viewer.addEventListener('render', () => { if (insightOn) placeMarkers(); });
+  $('btn-insight').addEventListener('click', () => setInsight(!insightOn));
+
   await load();
   return {
     viewer,
-    activate() { viewer.setActive(true); applyTwin(); },
+    activate() {
+      viewer.setActive(true);
+      applyTwin();
+      const q = new URLSearchParams(location.hash.split('?')[1] ?? '');
+      if (q.has('anlat')) setInsight(true, q.get('anlat') || null);
+    },
     deactivate() { viewer.setActive(false); $('layers-panel').hidden = true; },
   };
 }

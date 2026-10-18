@@ -23,6 +23,10 @@ export function mockReply({ messages, context, level }) {
     return `${ref}\n\nBunun yerine genel hareket alışkanlıkları, egzersiz planı veya duruş farkındalığı hakkında yardımcı olabilirim.`;
   }
 
+  // Bana Anlat: ölçülmüş bölge bulguları (yalnızca paylaşılan veriden; yoksa açıkça söylenir)
+  const insightQ = findingsQuestion(last);
+  if (insightQ) return findingsReply(insightQ, last, context);
+
   // Haftalık değerlendirme
   if (has(last, 'haftalık değerlendirme', 'haftamı değerlendir', 'bu hafta nasıl')) {
     const w = context?.workouts, a = context?.activity, c = context?.comparisons ?? [];
@@ -101,3 +105,60 @@ export function mockReply({ messages, context, level }) {
 }
 
 const fmt = (n) => Number(n).toLocaleString('tr-TR');
+
+// ---------------- Bana Anlat ----------------
+
+const REGION_WORDS = [
+  [/sağ omuz|sağ omz/, ['omuz-R']], [/sol omuz|sol omz/, ['omuz-L']], [/omuz|omz/, ['omuz-L', 'omuz-R']],
+  [/sağ diz/, ['diz-R']], [/sol diz/, ['diz-L']], [/diz/, ['diz-L', 'diz-R']],
+  [/boyn|boyun|baş/, ['bas-boyun']], [/gövde|bel|sırt/, ['govde']], [/kalça|leğen/, ['kalca']], [/denge|ayak bile/, ['denge']],
+];
+
+function findingsQuestion(t) {
+  if (has(t, 'geçen hafta', 'ne değişti', 'değişim var')) return 'degisim';
+  if (has(t, 'nerelere dikkat', 'nereme dikkat', 'dikkat etmeliyim', 'vücudumda ne')) return 'genel';
+  if (has(t, 'neden sarı', 'neden turuncu', 'neden gri', 'neden yeşil', 'ne fark gördün', 'ne fark var', 'farkı ne')) return 'bolge';
+  if (has(t, 'hareketlerimi nasıl', 'bugün nasıl yaptım', 'nasıl yaptım')) return 'bugun';
+  if (has(t, 'hangi egzersizleri deneyebilirim', 'hangi egzersiz', 'hangi hareketleri deneyebilirim')) return 'egzersiz';
+  return null;
+}
+
+function findingsReply(kind, t, context) {
+  const f = context?.findings;
+  if (kind === 'degisim') {
+    const c = context?.comparisons ?? [];
+    if (!c.length) return 'Geçen haftayla karşılaştırma yapabilmem için en az iki karşılaştırılabilir tarama ve "Tarama karşılaştırmaları" paylaşımı gerekir. Şu an bu veriyi göremiyorum, bu yüzden bir değişimden söz edemem.\n\nGenel bilgi: küçük farklar ölçüm belirsizliği içinde kalabilir; İçGör yalnızca en küçük saptanabilir değişimi aşan farkları "olası değişim" olarak gösterir.';
+    return `Ölçümlerine göre:\n${list(c.slice(0, 5).map((x) => `${x.tr}: ${x.text}`))}\n\n"Belirsiz" yazanlar ölçüm hatası içinde kalan farklardır; iyileşme veya kötüleşme olarak yorumlanmamalı.`;
+  }
+  if (!f) return 'Ölçüm sonuçlarını göremiyorum: ya henüz tarama yapılmadı ya da "Bana Anlat bulguları" paylaşımı kapalı. Asistan ekranındaki "Paylaşılan bilgiler" bölümünden açabilir veya Bana Anlat ekranında sonuçlara doğrudan bakabilirsin. Veri olmadan vücudun hakkında bir şey söyleyemem.';
+  const regs = f.regions ?? [];
+  const att = regs.filter((r) => r.status === 'sari' || r.status === 'turuncu');
+  const gray = regs.filter((r) => r.status === 'gri').map((r) => r.tr);
+  const note = 'Bunlar kamera ölçümleridir; bir hastalık, kas hasarı veya sağlık sorunu olduğunu göstermez.';
+  if (kind === 'bolge') {
+    const ids = REGION_WORDS.find(([re]) => re.test(t))?.[1];
+    const sel = ids ? regs.filter((r) => ids.includes(r.id)) : att;
+    if (!sel.length) return 'Hangi bölgeyi sorduğunu anlayamadım; örneğin "Sağ omzum neden sarı?" diye sorabilirsin.';
+    const lines = sel.map((r) => (r.status === 'gri' ? `${r.tr}: bu bölge ölçülmedi veya veri güvenilir değildi; hakkında bir şey söyleyemem.` : `${r.tr} (${r.statusTr}): ${r.text.replace(`${r.tr}: `, '')}`));
+    const flagged = sel.some((r) => r.status === 'sari' || r.status === 'turuncu');
+    const intro = flagged && /diz/.test(t) ? 'Dizinde bir hastalık olduğunu söyleyemem. Ancak ölçümüne göre:' : 'Ölçümüne göre:';
+    const why = sel.some((r) => r.status === 'sari') ? '\n\nSarı, farkın şimdilik tek ölçümde görüldüğü anlamına gelir; aynı koşullarda tekrar ölçmek en iyi sonraki adımdır.' : sel.some((r) => r.status === 'turuncu') ? '\n\nTuruncu, aynı farkın birden fazla güvenilir ölçümde aynı yönde sürdüğü anlamına gelir.' : '';
+    return `${intro}\n${list(lines)}${why}\n\nGenel bilgi: kamera açısı, kıyafet, ışık ve o anki duruş bu ölçümleri etkileyebilir. ${note} Ağrı, uyuşma veya güç kaybı varsa bir uzmana danış.`;
+  }
+  if (kind === 'egzersiz') {
+    const ex = Object.entries(f.exercises ?? {});
+    if (!ex.length) return 'Ölçümlerinde dikkat çeken bir bölge görünmüyor; genel programına devam edebilirsin. İstersen kısa bir duruş farkındalığı programı hazırlayabilirim.';
+    return `Ölçümünde dikkat çeken bölgeler için hafif ve kontrollü hareketler:\n${list(ex.map(([k, v]) => `${k}: ${v.join(', ')}`))}\n\nBunlar tedavi değildir; rahat olduğun aralıkta yap, ağrı olursa dur.`;
+  }
+  if (kind === 'bugun') {
+    const pos = f.positives ?? [];
+    return `${f.quality ?? 'Son taramanın kalite bilgisi yok.'}\n${pos.length ? `\nOlumlu gözlemler:\n${list(pos.slice(0, 4))}` : ''}${att.length ? `\n\nDikkat çeken noktalar:\n${list(att.map((r) => r.text))}` : ''}\n\nSonraki adım: ${f.next ?? '—'}`;
+  }
+  // genel
+  const parts = [att.length ? `Ölçümüne göre dikkat çeken noktalar:\n${list(att.map((r) => `${r.text} (${r.statusTr})`))}` : 'Ölçülen bölgelerde belirsizliği aşan belirgin bir fark görülmedi.'];
+  if (gray.length) parts.push(`Ölçülmeyen bölgeler: ${gray.join(', ')}. Bu bölgeler hakkında bir şey söyleyemem; ilgili tarama veya hareket testiyle ölçülebilirler.`);
+  if (f.next) parts.push(`Önerilen sonraki adım: ${f.next}`);
+  parts.push(note);
+  if (f.synthetic) parts.unshift('Not: bu sonuçlar demo/sentetik veridir, gerçek ölçüm değildir.');
+  return parts.join('\n\n');
+}

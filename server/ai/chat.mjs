@@ -87,6 +87,13 @@ export function contextToText(c) {
     const p = c.profile;
     out.push(`Profil: ${[p.age && `${p.age} yaş`, p.heightCm && `${p.heightCm} cm`, p.weightKg && `${p.weightKg} kg`, p.level && `seviye ${s(p.level)}`, p.goal && `hedef ${s(p.goal)}`, p.location && `yer ${s(p.location)}`, p.daysPerWeek && `haftada ${p.daysPerWeek} gün`, p.minutesPerDay && `${p.minutesPerDay} dk`, p.limitations?.length && `kısıtlar: ${p.limitations.map(s).join(', ')}`].filter(Boolean).join(', ')}`);
   }
+  if (c.findings && Array.isArray(c.findings.regions)) {
+    const f = c.findings;
+    out.push(`Bana Anlat bulguları (kamera, yaklaşık; teşhis değildir)${f.synthetic ? ' [DEMO/SENTETİK VERİ]' : ''}:`);
+    if (f.quality) out.push(`- ${s(f.quality)}`);
+    for (const r of f.regions.slice(0, 10)) out.push(`- ${s(r.tr)} [${s(r.statusTr)}]: ${s(r.text)}`);
+    for (const [k, v] of Object.entries(f.exercises ?? {}).slice(0, 8)) out.push(`- Önerilen hafif hareketler (${s(k)}): ${(Array.isArray(v) ? v : []).slice(0, 4).map(s).join(', ')}`);
+  }
   if (Array.isArray(c.posture)) {
     out.push('Duruş gözlemleri (kamera, yaklaşık; ± belirsizlik; tanı değildir):');
     for (const o of c.posture.slice(0, 12)) out.push(`- ${s(o.tr)}: ${o.value} ${s(o.unit)} ± ${o.u}${o.experimental ? ' [deneysel]' : ''}${o.distinguishable ? ` → belirsizliği aşan sapma: ${s(o.sense)}` : o.distinguishable === false ? ' → nötrden ayırt edilemez' : ''}`);
