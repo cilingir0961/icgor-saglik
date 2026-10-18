@@ -19,6 +19,16 @@ export const SOURCES = {
     mirrorDoi: 'https://doi.org/10.5281/zenodo.22727172',
     commit: 'fd527e6f4daf732fd814314d9257df5877b844bc',
   },
+  zanatomy: {
+    title: 'Z-Anatomy (Blender şablonu)',
+    copyright: 'Z-Anatomy — Gauthier Kervyn (tasarım, 3B, anatomi), Marcin Zielinski (Python); BodyParts3D (DBCLS) türevi',
+    licenseNote: 'Tüm Z-Anatomy içeriği CC BY-SA 4.0. Bu projede kas ve tendon modelleri için kullanılır.',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    repo: 'https://github.com/Z-Anatomy/Models-of-human-anatomy',
+    commit: '0fee499c81db03fcbafecbe7ace68d5d5a18aa92',
+    path: 'Z-Anatomy.zip',
+    zipSha256: 'e029688545627bd0214b269e1063143abb580aad72b2c2445d6d8a9a0d9da736',
+  },
   hra: {
     title: 'Human Reference Atlas — 3D Reference Organ Set, Male (united), v2.0',
     copyright: 'Human Reference Atlas (HuBMAP), medical illustration: Kristen Browne, Heidi Schlehlein; Visible Human Male data, U.S. National Library of Medicine',
@@ -144,4 +154,27 @@ export function unzipEntry(zip, match) {
     p += 46 + nameLen + extraLen + commentLen;
   }
   throw new Error('zip girdisi bulunamadı');
+}
+
+/** Z-Anatomy arşivini indirir (SHA-256 doğrulamalı). Kas ağları bpy ile ayrıca dışa aktarılır (zanatomy-export.py). */
+export async function loadZanatomyZip() {
+  const Z = SOURCES.zanatomy;
+  return cached('zanat/Z-Anatomy.zip', `https://raw.githubusercontent.com/Z-Anatomy/Models-of-human-anatomy/${Z.commit}/${Z.path}`, Z.zipSha256);
+}
+
+/** zanatomy-export.py çıktısını okur: { objects: [{name, collection, positions(m), indices}] } */
+export function readZanatomyBin(buf) {
+  const len = buf.readUInt32LE(0);
+  const header = JSON.parse(buf.subarray(4, 4 + len).toString('utf8'));
+  const total = header.objects.reduce((a, o) => a + o.v[1], 0);
+  const posBytes = buf.subarray(4 + len, 4 + len + total * 12);
+  const positions = new Float32Array(posBytes.buffer.slice(posBytes.byteOffset, posBytes.byteOffset + posBytes.byteLength));
+  const idxBytes = buf.subarray(4 + len + total * 12);
+  const indices = new Uint32Array(idxBytes.buffer.slice(idxBytes.byteOffset, idxBytes.byteOffset + idxBytes.byteLength));
+  return header.objects.map((o) => ({
+    name: o.name,
+    collection: o.collection,
+    positions: positions.subarray(o.v[0] * 3, (o.v[0] + o.v[1]) * 3),
+    indices: indices.subarray(o.i[0], o.i[0] + o.i[1]),
+  }));
 }

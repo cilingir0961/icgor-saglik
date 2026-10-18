@@ -16,6 +16,16 @@
       "mirrorDoi": "https://doi.org/10.5281/zenodo.22727172",
       "commit": "fd527e6f4daf732fd814314d9257df5877b844bc"
     },
+    "zanatomy": {
+      "title": "Z-Anatomy (Blender şablonu)",
+      "copyright": "Z-Anatomy — Gauthier Kervyn (tasarım, 3B, anatomi), Marcin Zielinski (Python); BodyParts3D (DBCLS) türevi",
+      "licenseNote": "Tüm Z-Anatomy içeriği CC BY-SA 4.0. Bu projede kas ve tendon modelleri için kullanılır.",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "repo": "https://github.com/Z-Anatomy/Models-of-human-anatomy",
+      "commit": "0fee499c81db03fcbafecbe7ace68d5d5a18aa92",
+      "path": "Z-Anatomy.zip",
+      "zipSha256": "e029688545627bd0214b269e1063143abb580aad72b2c2445d6d8a9a0d9da736"
+    },
     "hra": {
       "title": "Human Reference Atlas — 3D Reference Organ Set, Male (united), v2.0",
       "copyright": "Human Reference Atlas (HuBMAP), medical illustration: Kristen Browne, Heidi Schlehlein; Visible Human Male data, U.S. National Library of Medicine",
@@ -44,41 +54,209 @@
         "centroidDistanceMm": 16,
         "boxIoU": 0.58
       }
-    ]
+    ],
+    "removedDuplicateRepresentations": [
+      "upper-limb-bones: Distal phalanx of right index finger (FJ6303)",
+      "upper-limb-bones: Distal phalanx of right middle finger (FJ6306)",
+      "upper-limb-bones: Distal phalanx of right ring finger (FJ6307)",
+      "upper-limb-bones: Middle phalanx of right ring finger (FJ6401)",
+      "upper-limb-bones: Middle phalanx of right index finger (FJ6405)",
+      "upper-limb-bones: Middle phalanx of right little finger (FJ6406)",
+      "upper-limb-bones: Middle phalanx of right middle finger (FJ6408)",
+      "upper-limb-bones: Proximal phalanx of right little finger (FJ6419)",
+      "upper-limb-bones: Proximal phalanx of right middle finger (FJ6421)",
+      "upper-limb-bones: Proximal phalanx of right ring finger (FJ6422)",
+      "lower-limb-bones: Distal phalanx of right little toe (FJ6305)",
+      "lower-limb-bones: Middle phalanx of right third toe (FJ6403)",
+      "lower-limb-bones: Middle phalanx of right fourth toe (FJ6404)",
+      "lower-limb-bones: Middle phalanx of right little toe (FJ6407)",
+      "lower-limb-bones: Proximal phalanx of right second toe (FJ6415)",
+      "lower-limb-bones: Proximal phalanx of right third toe (FJ6416)",
+      "lower-limb-bones: Proximal phalanx of right fourth toe (FJ6417)",
+      "arteries: Trunk of right internal carotid artery (FJ1682)",
+      "arteries: Trunk of right lateral occipital artery (FJ5104)",
+      "arteries: Trunk of right lateral occipital artery (FJ5028)",
+      "arteries: Trunk of right vertebral artery (FJ5015)",
+      "arteries: Trunk of right femoral artery (FJ2127)",
+      "arteries: Trunk of right common carotid artery (FJ3564)",
+      "arteries: Ureteric segment of right renal artery (FJ3582)",
+      "veins: Trunk of left superior pulmonary vein (FJ6002)",
+      "veins: Trunk of left inferior pulmonary vein (FJ6024)",
+      "veins: Trunk of left inferior pulmonary vein (FJ6013)",
+      "nerves: Trunk of right oculomotor nerve (FJ4034)"
+    ],
+    "zanatomyAlignment": [
+      {
+        "bone": "Right femur",
+        "beforeMm": 112.7,
+        "distanceMm": 0.34
+      },
+      {
+        "bone": "Left femur",
+        "beforeMm": 112.7,
+        "distanceMm": 0.36
+      },
+      {
+        "bone": "Right humerus",
+        "beforeMm": 121.2,
+        "distanceMm": 0.74
+      },
+      {
+        "bone": "Left humerus",
+        "beforeMm": 121.2,
+        "distanceMm": 0.65
+      }
+    ],
+    "zanatomyRegistration": {
+      "forearm-L": {
+        "rmsMm": 1.08,
+        "medianMm": 0.6,
+        "p90Mm": 1.83,
+        "initialRmsMm": 4.38,
+        "iterations": 41
+      },
+      "forearm-R": {
+        "rmsMm": 0.64,
+        "medianMm": 0.33,
+        "p90Mm": 1.08,
+        "initialRmsMm": 3.09,
+        "iterations": 41
+      },
+      "leg-L": {
+        "rmsMm": 3.12,
+        "medianMm": 1.22,
+        "p90Mm": 4.1,
+        "initialRmsMm": 6.4,
+        "iterations": 41
+      },
+      "leg-R": {
+        "rmsMm": 2.99,
+        "medianMm": 1.19,
+        "p90Mm": 4.14,
+        "initialRmsMm": 6.28,
+        "iterations": 41
+      },
+      "thigh-L": {
+        "rmsMm": 1.25,
+        "medianMm": 0.47,
+        "p90Mm": 1.65,
+        "initialRmsMm": 7.93,
+        "iterations": 41
+      },
+      "thigh-R": {
+        "rmsMm": 1.2,
+        "medianMm": 0.49,
+        "p90Mm": 1.54,
+        "initialRmsMm": 7.37,
+        "iterations": 27
+      },
+      "trunk:head-neck": {
+        "rmsMm": 3.01,
+        "medianMm": 1.53,
+        "p90Mm": 5.17,
+        "initialRmsMm": 4.22,
+        "iterations": 30
+      },
+      "trunk:lumbar": {
+        "rmsMm": 2.99,
+        "medianMm": 1.1,
+        "p90Mm": 5.17,
+        "initialRmsMm": 5.84,
+        "iterations": 41
+      },
+      "trunk:pelvis": {
+        "rmsMm": 3.01,
+        "medianMm": 0.38,
+        "p90Mm": 4.76,
+        "initialRmsMm": 2.75,
+        "iterations": 33
+      },
+      "trunk:thorax": {
+        "rmsMm": 3.06,
+        "medianMm": 1.37,
+        "p90Mm": 4.82,
+        "initialRmsMm": 15.41,
+        "iterations": 29
+      },
+      "upperArm-L": {
+        "rmsMm": 0.41,
+        "medianMm": 0.15,
+        "p90Mm": 0.74,
+        "initialRmsMm": 2.83,
+        "iterations": 41
+      },
+      "upperArm-R": {
+        "rmsMm": 0.53,
+        "medianMm": 0.1,
+        "p90Mm": 0.99,
+        "initialRmsMm": 2.66,
+        "iterations": 41
+      }
+    }
   },
   "lods": {
     "high": {
       "skin": {
         "path": "high/skin.glb",
-        "bytes": 374220,
+        "bytes": 374240,
         "tris": 60000
+      },
+      "muscles": {
+        "path": "high/muscles.glb",
+        "bytes": 1374084,
+        "tris": 167874
       },
       "skeleton": {
         "path": "high/skeleton.glb",
-        "bytes": 907568,
-        "tris": 138534
+        "bytes": 1259992,
+        "tris": 159538
       },
       "organs": {
         "path": "high/organs.glb",
-        "bytes": 1041688,
-        "tris": 151950
+        "bytes": 1541492,
+        "tris": 193882
+      },
+      "vessels": {
+        "path": "high/vessels.glb",
+        "bytes": 430400,
+        "tris": 53402
+      },
+      "nerves": {
+        "path": "high/nerves.glb",
+        "bytes": 213256,
+        "tris": 27626
       }
     },
     "low": {
       "skin": {
         "path": "low/skin.glb",
-        "bytes": 93288,
+        "bytes": 93304,
         "tris": 14000
+      },
+      "muscles": {
+        "path": "low/muscles.glb",
+        "bytes": 495752,
+        "tris": 54156
       },
       "skeleton": {
         "path": "low/skeleton.glb",
-        "bytes": 320224,
-        "tris": 46276
+        "bytes": 403808,
+        "tris": 47004
       },
       "organs": {
         "path": "low/organs.glb",
-        "bytes": 402300,
-        "tris": 53492
+        "bytes": 511184,
+        "tris": 57164
+      },
+      "vessels": {
+        "path": "low/vessels.glb",
+        "bytes": 190684,
+        "tris": 20488
+      },
+      "nerves": {
+        "path": "low/nerves.glb",
+        "bytes": 82172,
+        "tris": 9236
       }
     }
   },
@@ -134,7 +312,7 @@
         0.0901
       ],
       "tris": {
-        "high": 29978,
+        "high": 44982,
         "low": 8980
       },
       "sourceTris": 128702
@@ -229,15 +407,15 @@
       "en": "Bones of upper limbs and shoulder girdle",
       "fma": "FMA7183",
       "source": "bodyparts3d",
-      "parts": 74,
+      "parts": 64,
       "centroid": [
-        0.0082,
-        1.1411,
-        -0.0174
+        0.0004,
+        1.1525,
+        -0.0197
       ],
       "min": [
         -0.3233,
-        0.7311,
+        0.7312,
         -0.1059
       ],
       "max": [
@@ -246,10 +424,10 @@
         0.0947
       ],
       "tris": {
-        "high": 21968,
-        "low": 7134
+        "high": 25966,
+        "low": 7464
       },
-      "sourceTris": 90126
+      "sourceTris": 87186
     },
     {
       "id": "lower-limb-bones",
@@ -257,11 +435,11 @@
       "en": "Bones of lower limbs",
       "fma": "FMA7184",
       "source": "bodyparts3d",
-      "parts": 71,
+      "parts": 64,
       "centroid": [
-        0.0016,
-        0.3494,
-        -0.0064
+        0.0004,
+        0.3525,
+        -0.0073
       ],
       "min": [
         -0.1687,
@@ -274,10 +452,10 @@
         0.1353
       ],
       "tris": {
-        "high": 21966,
-        "low": 6716
+        "high": 23968,
+        "low": 7114
       },
-      "sourceTris": 45568
+      "sourceTris": 43402
     },
     {
       "id": "brain",
@@ -302,8 +480,8 @@
         0.0689
       ],
       "tris": {
-        "high": 30232,
-        "low": 10252
+        "high": 60154,
+        "low": 12940
       },
       "sourceTris": 766844
     },
@@ -330,8 +508,8 @@
         0.0758
       ],
       "tris": {
-        "high": 23938,
-        "low": 8002
+        "high": 35948,
+        "low": 8986
       },
       "sourceTris": 133758
     },
@@ -754,6 +932,426 @@
         "low": 226
       },
       "sourceTris": 226
+    },
+    {
+      "id": "aorta",
+      "layer": "vessels",
+      "en": "Aorta",
+      "fma": "FMA3734",
+      "source": "bodyparts3d",
+      "parts": 3,
+      "centroid": [
+        0.0139,
+        1.2664,
+        -0.0045
+      ],
+      "min": [
+        -0.0062,
+        1.0249,
+        -0.0557
+      ],
+      "max": [
+        0.0355,
+        1.3952,
+        0.0367
+      ],
+      "tris": {
+        "high": 4998,
+        "low": 1998
+      },
+      "sourceTris": 5628
+    },
+    {
+      "id": "vena-cava",
+      "layer": "vessels",
+      "en": "Venae cavae",
+      "fma": "FMA10951",
+      "source": "bodyparts3d",
+      "parts": 3,
+      "centroid": [
+        -0.013,
+        1.1948,
+        0.0155
+      ],
+      "min": [
+        -0.0262,
+        1.029,
+        0.0028
+      ],
+      "max": [
+        -0.0014,
+        1.3879,
+        0.028
+      ],
+      "tris": {
+        "high": 2498,
+        "low": 998
+      },
+      "sourceTris": 3678
+    },
+    {
+      "id": "arteries",
+      "layer": "vessels",
+      "en": "Systemic and pulmonary arteries",
+      "fma": "FMA50720",
+      "source": "bodyparts3d",
+      "parts": 356,
+      "centroid": [
+        -0.0004,
+        0.9648,
+        0.0023
+      ],
+      "min": [
+        -0.3031,
+        0.0088,
+        -0.1189
+      ],
+      "max": [
+        0.3044,
+        1.7069,
+        0.1283
+      ],
+      "tris": {
+        "high": 25816,
+        "low": 9774
+      },
+      "sourceTris": 667026
+    },
+    {
+      "id": "veins",
+      "layer": "vessels",
+      "en": "Systemic veins",
+      "fma": "FMA50723",
+      "source": "bodyparts3d",
+      "parts": 254,
+      "centroid": [
+        -0.0024,
+        0.9105,
+        -0.0029
+      ],
+      "min": [
+        -0.3237,
+        0.0055,
+        -0.1162
+      ],
+      "max": [
+        0.325,
+        1.7149,
+        0.1052
+      ],
+      "tris": {
+        "high": 20090,
+        "low": 7718
+      },
+      "sourceTris": 829488
+    },
+    {
+      "id": "spinal-cord",
+      "layer": "nerves",
+      "en": "Spinal cord",
+      "fma": "FMA7647",
+      "source": "bodyparts3d",
+      "parts": 2,
+      "centroid": [
+        0,
+        1.2302,
+        -0.0484
+      ],
+      "min": [
+        -0.009,
+        0.917,
+        -0.0998
+      ],
+      "max": [
+        0.0092,
+        1.5605,
+        -0.0207
+      ],
+      "tris": {
+        "high": 3954,
+        "low": 1478
+      },
+      "sourceTris": 16664
+    },
+    {
+      "id": "nerves",
+      "layer": "nerves",
+      "en": "Peripheral nerves",
+      "fma": "FMA65132",
+      "source": "bodyparts3d",
+      "parts": 217,
+      "centroid": [
+        0.0906,
+        1.3534,
+        -0.0007
+      ],
+      "min": [
+        -0.1025,
+        0.7324,
+        -0.1193
+      ],
+      "max": [
+        0.3254,
+        1.6796,
+        0.1031
+      ],
+      "tris": {
+        "high": 23672,
+        "low": 7758
+      },
+      "sourceTris": 381244
+    },
+    {
+      "id": "mus-head-neck",
+      "layer": "muscles",
+      "en": "Muscles of head and neck",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 159,
+      "centroid": [
+        0,
+        1.5563,
+        -0.0111
+      ],
+      "min": [
+        -0.1459,
+        1.2881,
+        -0.121
+      ],
+      "max": [
+        0.1457,
+        1.7136,
+        0.0894
+      ],
+      "tris": {
+        "high": 24160,
+        "low": 7760
+      },
+      "sourceTris": 371430
+    },
+    {
+      "id": "mus-chest",
+      "layer": "muscles",
+      "en": "Muscles of thorax",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 24,
+      "centroid": [
+        0.0004,
+        1.2778,
+        -0.0019
+      ],
+      "min": [
+        -0.188,
+        1.0834,
+        -0.1124
+      ],
+      "max": [
+        0.1888,
+        1.4543,
+        0.125
+      ],
+      "tris": {
+        "high": 19954,
+        "low": 6974
+      },
+      "sourceTris": 331788
+    },
+    {
+      "id": "mus-abdomen",
+      "layer": "muscles",
+      "en": "Muscles of abdomen",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 14,
+      "centroid": [
+        0.0005,
+        1.0812,
+        0.0564
+      ],
+      "min": [
+        -0.1323,
+        0.8652,
+        -0.0676
+      ],
+      "max": [
+        0.1332,
+        1.2878,
+        0.1241
+      ],
+      "tris": {
+        "high": 11994,
+        "low": 3992
+      },
+      "sourceTris": 236846
+    },
+    {
+      "id": "mus-back",
+      "layer": "muscles",
+      "en": "Muscles of back",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 54,
+      "centroid": [
+        0.0003,
+        1.2498,
+        -0.0779
+      ],
+      "min": [
+        -0.1734,
+        0.9013,
+        -0.1322
+      ],
+      "max": [
+        0.1742,
+        1.5678,
+        -0.0014
+      ],
+      "tris": {
+        "high": 21972,
+        "low": 6968
+      },
+      "sourceTris": 240704
+    },
+    {
+      "id": "mus-leg-foot",
+      "layer": "muscles",
+      "en": "Muscles of leg and foot",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 64,
+      "centroid": [
+        0.0004,
+        0.2207,
+        -0.0299
+      ],
+      "min": [
+        -0.1529,
+        0.0055,
+        -0.1002
+      ],
+      "max": [
+        0.1539,
+        0.5061,
+        0.1316
+      ],
+      "tris": {
+        "high": 21938,
+        "low": 7001
+      },
+      "sourceTris": 176764
+    },
+    {
+      "id": "mus-hip-thigh",
+      "layer": "muscles",
+      "en": "Muscles of hip and thigh",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 56,
+      "centroid": [
+        0.0005,
+        0.7382,
+        -0.0187
+      ],
+      "min": [
+        -0.1578,
+        0.3575,
+        -0.1243
+      ],
+      "max": [
+        0.1591,
+        1.1711,
+        0.0534
+      ],
+      "tris": {
+        "high": 25968,
+        "low": 7988
+      },
+      "sourceTris": 322502
+    },
+    {
+      "id": "mus-shoulder-arm",
+      "layer": "muscles",
+      "en": "Muscles of shoulder and arm",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 36,
+      "centroid": [
+        0.0005,
+        1.2864,
+        -0.0423
+      ],
+      "min": [
+        -0.2569,
+        0.9939,
+        -0.1191
+      ],
+      "max": [
+        0.2583,
+        1.4349,
+        0.0205
+      ],
+      "tris": {
+        "high": 15966,
+        "low": 4980
+      },
+      "sourceTris": 92776
+    },
+    {
+      "id": "mus-forearm-hand",
+      "layer": "muscles",
+      "en": "Muscles of forearm and hand",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 72,
+      "centroid": [
+        0.0009,
+        0.9593,
+        0.003
+      ],
+      "min": [
+        -0.3242,
+        0.0155,
+        -0.0552
+      ],
+      "max": [
+        0.3258,
+        1.2302,
+        0.0939
+      ],
+      "tris": {
+        "high": 21946,
+        "low": 6973
+      },
+      "sourceTris": 158152
+    },
+    {
+      "id": "mus-pelvic",
+      "layer": "muscles",
+      "en": "Muscles of pelvic floor and perineum",
+      "fma": "FMA5022",
+      "source": "zanatomy",
+      "parts": 12,
+      "centroid": [
+        -0.0001,
+        0.8678,
+        -0.0515
+      ],
+      "min": [
+        -0.0448,
+        0.8323,
+        -0.0909
+      ],
+      "max": [
+        0.0448,
+        0.907,
+        0.0039
+      ],
+      "tris": {
+        "high": 3976,
+        "low": 1520
+      },
+      "sourceTris": 15800
     }
   ],
   "landmarks": {
@@ -777,6 +1375,68 @@
       -0.0933,
       0.895,
       -0.0242
+    ]
+  },
+  "joints": {
+    "shoulder-L": [
+      0.1698,
+      1.4002,
+      -0.0243
+    ],
+    "elbow-L": [
+      0.2094,
+      1.1179,
+      -0.0313
+    ],
+    "wrist-L": [
+      0.2525,
+      0.8892,
+      0.0137
+    ],
+    "hip-L": [
+      0.0948,
+      0.8958,
+      -0.0237
+    ],
+    "knee-L": [
+      0.0764,
+      0.4602,
+      -0.0248
+    ],
+    "ankle-L": [
+      0.0697,
+      0.0819,
+      -0.0253
+    ],
+    "shoulder-R": [
+      -0.1689,
+      1.4002,
+      -0.0232
+    ],
+    "elbow-R": [
+      -0.2086,
+      1.118,
+      -0.0313
+    ],
+    "wrist-R": [
+      -0.2556,
+      0.8894,
+      0.0145
+    ],
+    "hip-R": [
+      -0.0933,
+      0.895,
+      -0.0242
+    ],
+    "knee-R": [
+      -0.0736,
+      0.4603,
+      -0.0242
+    ],
+    "ankle-R": [
+      -0.068,
+      0.0818,
+      -0.0252
     ]
   }
 }

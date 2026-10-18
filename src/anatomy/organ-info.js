@@ -15,8 +15,11 @@ export const SYSTEMS = {
 
 export const LAYERS = {
   skin: { tr: 'Deri', defaultOpacity: 0.18 },
+  muscles: { tr: 'Kaslar', defaultOpacity: 1, lazy: true },
   skeleton: { tr: 'İskelet', defaultOpacity: 1 },
   organs: { tr: 'Organlar', defaultOpacity: 1 },
+  vessels: { tr: 'Damarlar', defaultOpacity: 1, lazy: true },
+  nerves: { tr: 'Sinirler', defaultOpacity: 1, lazy: true },
 };
 
 /** @type {Record<string, {tr:string, system:keyof SYSTEMS, location:string, function:string, facts?:string[]}>} */
@@ -151,6 +154,88 @@ export const ORGAN_INFO = {
     tr: 'İdrar kesesi (mesane)', system: 'urinary',
     location: 'Pelvis boşluğunda, kasık kemiğinin (simfizis pubis) arkasında.',
     function: 'Böbreklerden gelen idrarı depolar ve işeme sırasında boşaltır.',
+  },
+  // ---------- Kas grupları (Z-Anatomy) ----------
+  'mus-head-neck': {
+    tr: 'Baş ve boyun kasları', system: 'muscular',
+    location: 'Yüz ifade kasları, çiğneme kasları (masseter, temporal kas), boyun kasları (sternokleidomastoid, skalen kaslar), dil altı kasları ve göz kasları.',
+    function: 'Yüz ifadesi, çiğneme, yutma, konuşma, başın hareketi ve göz hareketleri.',
+    facts: ['Masseter, vücut ağırlığına oranla en güçlü kaslardan biridir.'],
+  },
+  'mus-chest': {
+    tr: 'Göğüs kasları', system: 'muscular',
+    location: 'Büyük ve küçük göğüs kası (pektoral kaslar), serratus anterior ve kaburgalar arasındaki interkostal kaslar.',
+    function: 'Kolun öne ve içe hareketi, kürek kemiğinin sabitlenmesi; interkostal kaslar solunuma yardım eder.',
+  },
+  'mus-abdomen': {
+    tr: 'Karın kasları', system: 'muscular',
+    location: 'Karın düz kası (rektus abdominis), dış ve iç eğik kaslar, karın enine kası ve kuadratus lumborum.',
+    function: 'Gövdeyi öne büker ve döndürür, karın içi organları destekler, zorlu soluk vermeye ve öksürmeye katılır.',
+  },
+  'mus-back': {
+    tr: 'Sırt kasları', system: 'muscular',
+    location: 'Yüzeyde trapez ve geniş sırt kası (latissimus dorsi), derinde omurga boyunca uzanan dikleştirici kaslar (erector spinae) ve rombik kaslar.',
+    function: 'Omurgayı dik tutar ve geriye büker; kürek kemiğini ve kolu hareket ettirir.',
+  },
+  'mus-shoulder-arm': {
+    tr: 'Omuz ve kol kasları', system: 'muscular',
+    location: 'Deltoid, rotator manşet kasları (supraspinatus, infraspinatus, teres minör, subskapularis), kolun önünde biseps ve brakialis, arkasında triseps.',
+    function: 'Omuz eklemini hareket ettirir ve sabitler; dirseği büker (biseps, brakialis) ve açar (triseps).',
+  },
+  'mus-forearm-hand': {
+    tr: 'Ön kol ve el kasları', system: 'muscular',
+    location: 'Ön kolun ön yüzünde bükücü, arka yüzünde açıcı kaslar; elde başparmak ve serçe parmak tümsek kasları, lumbrikal ve interosseöz kaslar.',
+    function: 'El bileği ve parmak hareketleri, kavrama, ön kolun içe-dışa dönmesi.',
+  },
+  'mus-hip-thigh': {
+    tr: 'Kalça ve uyluk kasları', system: 'muscular',
+    location: 'Kalçada gluteal kaslar, uyluk önünde kuadriseps ve sartorius, içte adduktorlar, arkada hamstring kasları.',
+    function: 'Ayakta durma, yürüme ve koşma; dizi açar (kuadriseps), büker (hamstring), bacağı içe çeker (adduktorlar).',
+    facts: ['Sartorius vücudun en uzun kasıdır.'],
+  },
+  'mus-leg-foot': {
+    tr: 'Bacak ve ayak kasları', system: 'muscular',
+    location: 'Baldırda gastroknemius ve soleus (Aşil tendonuyla topuğa yapışır), önde tibialis anterior, yanda fibular kaslar; ayak tabanı kasları.',
+    function: 'Ayak bileğini ve parmakları hareket ettirir, yürürken itiş gücü sağlar, ayak kemerini destekler.',
+  },
+  'mus-pelvic': {
+    tr: 'Pelvis tabanı kasları', system: 'muscular',
+    location: 'Pelvis çıkışını kapatan levator ani ve koksigeus kasları ile perine kasları.',
+    function: 'Pelvis organlarını destekler, idrar ve dışkı tutmaya katılır.',
+  },
+
+  // ---------- Damarlar (BodyParts3D) ----------
+  aorta: {
+    tr: 'Aort', system: 'circulatory',
+    location: 'Sol karıncıktan çıkar (çıkan aort), sola-arkaya kıvrılır (aort kavsi), omurganın önünde ve hafif solunda göğüs ve karından aşağı iner.',
+    function: 'Vücudun ana atardamarıdır; oksijenli kanı tüm vücuda dağıtan dalları verir.',
+  },
+  'vena-cava': {
+    tr: 'Üst ve alt ana toplardamar (vena kava)', system: 'circulatory',
+    location: 'Üst vena kava baş, boyun ve kollardan; alt vena kava gövde ve bacaklardan gelen kanı sağ kulakçığa taşır. Alt vena kava omurganın sağında yer alır.',
+    function: 'Oksijeni azalmış kanı kalbe geri döndürür.',
+  },
+  arteries: {
+    tr: 'Atardamarlar', system: 'circulatory',
+    location: 'Şah damarları, kol ve bacak atardamarları, böbrek ve bağırsak atardamarları gibi ana sistemik dallar ve akciğer atardamarları.',
+    function: 'Kanı kalpten dokulara taşır. Modelde kırmızı gösterilir; organ içindeki ince dallar sadeleştirme için çıkarılmıştır.',
+  },
+  veins: {
+    tr: 'Toplardamarlar', system: 'circulatory',
+    location: 'Boyun (juguler), kol, bacak ve gövde toplardamarları; deri altı ve derin toplardamarlar.',
+    function: 'Kanı dokulardan kalbe geri taşır. Modelde mavi gösterilir; bu renk geleneksel bir gösterimdir, kanın gerçek rengi değildir.',
+  },
+
+  // ---------- Sinir sistemi (BodyParts3D) ----------
+  'spinal-cord': {
+    tr: 'Omurilik', system: 'nervous',
+    location: 'Omurga kanalı içinde, beyin sapından yaklaşık birinci-ikinci bel omuru hizasına kadar; aşağıda sinir kökleri (kauda ekina) devam eder.',
+    function: 'Beyin ile vücut arasındaki sinir iletimini sağlar; refleks devrelerini içerir.',
+  },
+  nerves: {
+    tr: 'Periferik sinirler', system: 'nervous',
+    location: 'Omurilik ve beyinden çıkan sinirler: kol sinir ağı (brakiyal pleksus), interkostal sinirler, bel-sağrı ağı, yüz ve kafa sinirleri.',
+    function: 'Hareket komutlarını kaslara iletir, duyuları beyne taşır. Modelde sarı gösterilir.',
   },
 };
 

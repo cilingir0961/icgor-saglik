@@ -108,3 +108,45 @@ test('işaretli hacim: dışa dönük küp +1, ters çevrilince −1 ve orientOu
   assert.ok(signedVolume(fixed.mesh) > 0);
   assert.equal(orientOutward(cube).flipped, false);
 });
+
+test('AO: açık düzlemde 1, kapalı köşe içinde karanlık', async () => {
+  const { bakeAO, hemisphereDirections } = await import('../scripts/anatomy/ao.mjs');
+  const d = hemisphereDirections(32);
+  assert.ok(d.every(([x, y, z]) => z > 0 && Math.abs(Math.hypot(x, y, z) - 1) < 1e-9));
+  // Zemin (y=0, normal +y) ve üstte yakın bir tavan (y=0.01, normal -y)
+  const quad = (y, flip, r = 1) => ({
+    positions: Float32Array.from([-r, y, -r, r, y, -r, r, y, r, -r, y, r]),
+    indices: Uint32Array.from(flip ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]),
+  });
+  const up = Float32Array.from([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]);
+  const down = Float32Array.from([0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0]);
+  const open = bakeAO([{ mesh: quad(0, false), normals: up }], { maxDist: 0.05 });
+  assert.ok(open[0].every((v) => v === 1), 'açık yüzey aydınlık');
+  const closed = bakeAO([{ mesh: quad(0, false), normals: up }, { mesh: quad(0.01, true, 3), normals: down }], { maxDist: 0.05 });
+  assert.ok(closed[0][0] < 0.6, `kapalı aralık karanlık: ${closed[0][0]}`);
+});
+
+test('ICP: bilinen afin bozulmayı geri bulur (küre yüzeyi)', async () => {
+  const { icpAffine, compose } = await import('../scripts/anatomy/register.mjs');
+  const { applyAffine } = await import('../src/core/affine.js');
+  const pos = [], idx = [];
+  const N = 24;
+  for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+    const th = (i / N) * Math.PI, ph = (j / N) * 2 * Math.PI;
+    pos.push(40 * Math.sin(th) * Math.cos(ph), 120 * Math.cos(th), 25 * Math.sin(th) * Math.sin(ph)); // uzun kemik benzeri elipsoit
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const a = i * (N + 1) + j, b = a + 1, c = a + N + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+  const target = { positions: Float32Array.from(pos), indices: Uint32Array.from(idx) };
+  const T = [[1.03, 0.05, 0, 30], [-0.04, 0.98, 0.02, 95], [0, 0.03, 1.01, 60]]; // ~1 cm kayma + küçük dönme/ölçek
+  const src = { positions: Float32Array.from(target.positions), indices: target.indices };
+  for (let i = 0; i < src.positions.length; i += 3) {
+    const p = applyAffine(T, [src.positions[i], src.positions[i + 1], src.positions[i + 2]]);
+    src.positions.set(p, i);
+  }
+  const r = icpAffine([src], [target]);
+  assert.ok(r.initialRmsMm > 1, `başlangıç (merkez hizası sonrası) ${r.initialRmsMm}`);
+  assert.ok(r.rmsMm < 0.5, `son RMS ${r.rmsMm} mm`);
+  // compose doğrulaması
+  const I = compose([[1, 0, 0, 1], [0, 1, 0, 2], [0, 0, 1, 3]], [[2, 0, 0, 0], [0, 2, 0, 0], [0, 0, 2, 0]]);
+  assert.deepEqual(I, [[2, 0, 0, 1], [0, 2, 0, 2], [0, 0, 2, 3]]);
+});
