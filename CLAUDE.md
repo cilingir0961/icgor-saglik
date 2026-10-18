@@ -27,3 +27,8 @@
   ölçülebilir kazanç ve mobil maliyet (ısınma, pil, bellek) `docs/ARCHITECTURE.md`'ye yazılır.
 - Ücretli hizmet, dış hesap, gerçek sağlık verisi yükleme, üretim dağıtımı ve App Store yayını için
   önceden açık onay gerekir.
+- Ölçüm dürüstlüğü (v0.5): yeni gösterge eklenmeden önce sentetik kıyasla (scripts/*-bench.mjs) hatası
+  ölçülür; belirsizlik payları ölçümden gelir; doğruluğu kanıtlanmayan gösterge "Deneysel" işaretlenir.
+  Test toleransı, hatayı gizlemek için gevşetilmez. Sentetik / gerçek gönüllü / gerçek cihaz sonuçları ayrı
+  raporlanır. Kamerayla belirlenemeyen durumlar (fıtık, skolyoz, disk, organ, iç yağ) gösterilmez.
+- Gerçek kişi verisi yalnızca etik onay + açık rıza ile; eval-recording.mjs rızasız kaydı değerlendirmez.

@@ -50,4 +50,24 @@ window.run = (params) => {
   return { truth, lm, world, ms, sil, maskSize };
 };
 window.fig = fig; // hata ayıklama
+/** Bir poz dizisini WebM olarak kaydeder (kayıt değerlendirme aracının öz sınaması). */
+window.record = async (frames, fps = 10) => {
+  const stream = fig.canvas.captureStream(0);
+  const track = stream.getVideoTracks()[0];
+  const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 4e6 });
+  const chunks = [];
+  rec.ondataavailable = (e) => chunks.push(e.data);
+  rec.start();
+  for (const p of frames) {
+    fig.render(p);
+    track.requestFrame();
+    await new Promise((r) => setTimeout(r, 1000 / fps));
+  }
+  rec.stop();
+  await new Promise((r) => { rec.onstop = r; });
+  const buf = new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer());
+  let s = '';
+  for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  return btoa(s);
+};
 document.body.dataset.ready = 'true';

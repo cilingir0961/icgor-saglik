@@ -1,4 +1,4 @@
-# Mimari ve Teknik Kararlar (v0.4)
+# Mimari ve Teknik Kararlar (v0.5)
 
 ## Temel ilke: üç veri sınıfı, hiç karıştırılmaz
 
@@ -29,6 +29,11 @@ src/three/{assets,materials,palette,lod}.js  Tembel yükleme+önbellek, malzemel
 src/camera/ar-fit.js       Video→ekran eşleme, afin uydurma, sanal kalça, poz kalitesi, uzuv açıları (saf)
 src/camera/pose-tracker.js MediaPipe Pose Landmarker (yerel dosyalar, GPU→CPU yedeği)
 src/camera/camera-screen.js İzin akışı, takip döngüsü, One Euro yumuşatma, elle hizalama
+src/analysis/              Ölçüm (saf): geometry, quality (kalite kapısı), posture (duruş göstergeleri),
+                           movement (hareket testleri), compare (30/60/90, MDC), proportions, silhouette,
+                           atlas-silhouette (üretilir)
+src/scan/                  Tarama ekranı: scan-screen (akış), report, store (yerel, rızalı), voice, tilt, dom
+src/anatomy/posture-info.js Gözlem → anatomi vurgusu ve genel biyomekanik metinleri (teşhis dili yok)
 src/imaging/               Görüntüleme kaynak mimarisi + DICOM ekranı
 src/dicom/                 Bağımsız DICOM ayrıştırıcı, hacim/MPR/MIP, sentetik fantom
 src/anatomy/organ-info.js  Eğitim içeriği (Türkçe)
@@ -126,6 +131,30 @@ sınır %0,5 (yazılım GPU'su deterministik; değişmeyen kodda fark %0,00; kas
 **Sınır:** Bu ortamda yalnızca Chromium var. iPhone profili ekran/dokunma/kullanıcı aracısı
 emülasyonudur, **gerçek Safari/WebKit değildir**. Gerçek cihaz testi yapılmadı.
 
+### v0.5 kararları
+
+19. **Ölçüm önce doğrulanır.** `test/fixtures/figure.js` atlas ağlarını bilinen pozla (rig, gövde eğilmesi,
+    omuz yükseltme, bacak dönmesi, baş-öne, gövde ölçeği) çizer; yer gerçeği eklemler ve ağ kesitleridir.
+    Her gösterge ve her hata payı (`U_SYS`, `uSys`, `SIL_CAL`) bu kıyaslardan gelir (`docs/bench/`).
+20. **Poz modeli:** tarama `full` (p90 açı hatası 12,8°, lite 16,5°), canlı AR `lite` (hız/ısı). heavy:
+    2,4× yavaş, 30 MB, küçük kazanç → kullanılmadı. MediaPipe 3B "world" açıları 17–22° hatalı → kullanılmaz.
+21. **2B ölçüm sınırları:** açılar görüntü düzleminde; segment kameraya doğruysa (görünür boy < %80) kare
+    dışlanır. Taraflar ekran konumundan + görünüşten çıkarılır (arka görünümde MediaPipe sol/sağ karışabilir).
+22. **Belirsizlik ve karar:** u = √(istatistik² + sistematik² + kamera eğimi²); eğim sensörü yoksa açı payı 4°.
+    Gözlem yalnızca |sapma| > 2u ise bildirilir. Nötr değeri kişiden kişiye değişen göstergelerde (baş-öne,
+    diz hizası, ayak yönelimi) nötr karşılaştırması yapılmaz; yalnızca kişinin kendi geçmişiyle.
+23. **Sahte ilerleme engeli:** karşılaştırma yalnızca aynı görünüş + bakış yönü + model + benzer kadraj
+    oranı (±%12) + aynı düzlük durumunda; değişim MDC95 = 1,96·√(u₁²+u₂²) aşılırsa "olası değişim".
+24. **Siluet ve ikiz (deneysel):** bölütleme maskesi yalnızca son 3 karede okunur, hemen serbest bırakılır.
+    Atlas referansı deri ağının kesitinden (kapalı halka ayrıştırması: gövdeye yaslı kollar ayrı halka).
+    Göğüs düzeyi 0,4 (atlas derisinde kollar yukarıda gövdeyle kaynaşık); uyluk çıkarıldı (bacaklar birleşiyor).
+25. **Gizlilik:** görüntü cihazda işlenir, hiçbir kare saklanmaz; depoya yalnızca sayılar ve yalnızca
+    saklama onayıyla yazılır; dışa aktarma ve tümünü sil her zaman açık. MediaPipe'ın 60 sn'de bir kullanım
+    istatistiği gönderme denemesi vendor aşamasında kapatıldı (CSP zaten engelliyordu; v0.3'ten beri vardı,
+    testler 60 sn'den kısa olduğu için görülmemişti).
+26. **Güvenlik:** denge testinde tarama soruları ("evet" → test önerilmez), ön koşul onayları, büyük Durdur,
+    test sonrası rahatsızlık sorusu; rahatsızlık bildirilirse rapor profesyonel değerlendirme önerir.
+
 ### Kalite A/B (`node scripts/ab-quality.mjs`, aynı görüş, yüksek LOD)
 Ölçüt: model piksellerinde yerel kontrast (3×3 Laplace mutlak ortalaması; yüzey ayrıntısının görünürlüğü).
 
@@ -149,9 +178,13 @@ Kas+iskelet katmanları ten rengiyle çizilip Rig ile pozlanır (sol omuz 57°, 
 Bilek noktası hatası omuz genişliğinin %0,3–2,7'si; omuz açısı hatası 7–8°, sağ dirsek 9°, sol dirsek 16–17°
 (MediaPipe dirsek noktası %8 kayık; ön kol bileğe oturtulduğu için bu açıya yansır). Eşik 20°.
 
+### v0.5 ölçüm doğrulaması
+Ayrıntılı tablo ve gerçek kişi protokolü: [`VALIDATION.md`](VALIDATION.md). Kıyas çıktıları: `docs/bench/*.json`.
+
 ## Yol haritası
 
 1. Gerçek cihaz testleri (iPhone Safari, Android Chrome) — HTTPS önizleme gerekir (kullanıcı onayıyla).
+1a. Gerçek gönüllü doğrulaması (etik kurul + açık rıza; `scripts/eval-recording.mjs` hazır).
 2. Deri ağının iskelete bağlanması (skinning, ağırlık boyama) — hareket sırasında deri ve omuz kasları.
 3. Omuz noktası kalibrasyonu — açık lisanslı, yer gerçekli poz veri kümesiyle (insan deneyi değil).
 4. DICOM'dan yüzey çıkarma (marching cubes) ve WebGL hacim görüntüleme; Web Worker'da yükleme.
