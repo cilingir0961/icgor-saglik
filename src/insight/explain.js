@@ -52,7 +52,7 @@ export function explainRegion(r) {
   const topic = TOPICS[R.topic];
   const findings = r.flagged.map((f) => ({
     id: f.id,
-    text: observationText(f),
+    text: observationText(f, r.side),
     meaning: MEANING[f.id.split(':').slice(0, 2).join(':')] ?? MEANING[f.id] ?? 'Ölçülen değer, sağ–sol veya düz duruş referansına göre ölçüm belirsizliğini aşan bir fark gösterdi.',
     basis: `${f.test}${f.date ? `, ${dateTr(f.date)}` : ''}${f.source === 'coach' ? '' : ' taraması'}.`,
     reliability: reliabilityText(f),
@@ -68,7 +68,11 @@ export function explainRegion(r) {
   if (r.status === 'turuncu') next.push('Bu fark birkaç ölçümde sürdü. Hareketi rahat yapabildiğin aralıkta, kontrollü egzersizlerle çalışabilirsin; ağrı, uyuşma veya güç kaybı varsa bir fizyoterapist ya da hekime göstermen iyi olur.');
   if (r.status === 'yesil') next.push('Haftalık programına devam edebilirsin; ilerlemeyi görmek için birkaç hafta sonra aynı koşullarda tekrar ölç.');
   return {
-    unreliable: (r.unreliable ?? []).map((x) => `${x.test}: ${x.tr} — Ölçüm güvenilir değil, tekrar deneyin. ${x.why}`),
+    // Aynı testten gelen güvenilmez göstergeler tek satırda (en açıklayıcı neden)
+    unreliable: Object.values((r.unreliable ?? []).reduce((acc, x) => {
+      if (!acc[x.test] || x.why.length > acc[x.test].why.length) acc[x.test] = x;
+      return acc;
+    }, {})).map((x) => `${x.test}: Ölçüm güvenilir değil, tekrar deneyin. ${x.why}`),
     title: r.tr, status: r.status, headline: r.reason,
     findings, measuredOk,
     whatIs: findings.length ? NOT_DIAGNOSIS : '',

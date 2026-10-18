@@ -725,7 +725,7 @@ const coachCamera = async (page, r) => {
 // ---------------- v0.7: Bana Anlat ----------------
 
 /** Ölçülmüş gibi kaydedilmiş tarama (test verisi; uygulama akışıyla aynı biçim). */
-function insightScan(date, { armL = 152, armR = 128, trunk = 3.6 } = {}) {
+function insightScan(date, { armL = 152, armR = 128, trunk = 3.6, neckL = 30, neckR = 18 } = {}) {
   const c = (view) => ({ view, model: 'full', heightFrac: 0.8, level: 'known', facing: view === 'side' ? 'right' : null, mode: 'helper' });
   const pm = (tr, value, u, sense) => ({ tr, unit: '°', value, u, grade: 'iyi', experimental: false, neutral: 0, distinguishable: Math.abs(value) > 2 * u, sense });
   const m = (tr, value, u) => ({ tr, unit: '°', value, u, grade: 'iyi', experimental: false });
@@ -737,7 +737,12 @@ function insightScan(date, { armL = 152, armR = 128, trunk = 3.6 } = {}) {
       trunkLateral: pm('Gövdenin yana eğilimi', trunk, 1.3, 'gövde kişinin soluna eğik'),
       headTilt: pm('Başın yana eğimi', 0.5, 1.5, 'baş sağa eğik'),
     } } },
-    movements: { 'kol-kaldirma': { tr: 'Kolları yandan kaldırma', conditions: c('front'), reps: { L: 3, R: 3 }, samples: 120, metrics: {
+    movements: {
+      boyun: { tr: 'Baş ve boyun hareket açıklığı', conditions: c('front'), reps: {}, samples: 200, metrics: {
+        latFlexL: m('Başı sola yatırma', neckL, 2), latFlexR: m('Başı sağa yatırma', neckR, 2),
+        latAsym: { tr: 'Sağ–sol fark (yana yatırma)', unit: '°', value: neckL - neckR, u: 2.8, grade: 'iyi', experimental: false },
+      } },
+      'kol-kaldirma': { tr: 'Kolları yandan kaldırma', conditions: c('front'), reps: { L: 3, R: 3 }, samples: 120, metrics: {
       abductionL: L, abductionR: R, abductionAsym: { tr: 'Sağ–sol fark (kol kaldırma)', unit: '°', value: armL - armR, u: 4.2, grade: 'iyi', experimental: false },
     } } },
   };
@@ -751,26 +756,36 @@ const insightScreen = async (page, r) => {
   await page.waitFor("document.getElementById('insight-regions') !== null", 30000);
   const st = await page.eval('window.__icgorInsight.regions');
   r.metrics.regions = st;
-  const want = { 'omuz-L': 'turuncu', 'omuz-R': 'turuncu', govde: 'yesil', 'bas-boyun': 'yesil', 'diz-L': 'gri', denge: 'gri' };
+  // Kol kaldırma farkı (24°) doğrulama bekliyor → omuzlar yalnızca duruş ölçümüyle değerlendirilir (yeşil), renk üretmez
+  const want = { 'bas-boyun': 'turuncu', 'omuz-L': 'yesil', 'omuz-R': 'yesil', govde: 'yesil', 'diz-L': 'gri', denge: 'gri' };
   for (const [k, v] of Object.entries(want)) if (st[k] !== v) r.problems.push(`${k}: ${st[k]} (beklenen ${v})`);
   const sm = await page.eval("document.getElementById('insight-summary').textContent");
-  if (!/2 ölçümün 2'si yeterli görüntü kalitesiyle/.test(sm)) r.problems.push('özet kalite cümlesi yanlış');
+  if (!/3 ölçümün 2'si yeterli görüntü kalitesiyle/.test(sm)) r.problems.push(`özet kalite cümlesi yanlış: ${sm.slice(0, 160)}`);
+  if (!/Kolları yandan kaldırma: ölçüm güvenilir değil, tekrar deneyin/.test(sm)) r.problems.push('özette kol ölçümünün güvenilmez olduğu yazmıyor');
   const forbidden = (await page.eval('document.body.innerText')).match(/hastalık riski|teşhis edildi|risk puanı|fıtığınız|skolyozunuz|kas yırtığınız var/i);
   if (forbidden) r.problems.push(`yasak ifade: ${forbidden[0]}`);
   await noOverflow(page, r);
   await shot(page, r, 'ekran');
-  // Turuncu sağ omuza dokun → kart: hangi harekette kaç derece, neden kesin sorun değil, ne yapabilirim
+  // Sağ omuz: kol farkı güvenilmez → sayı yok, "Ölçüm güvenilir değil, tekrar deneyin"
   await page.eval("document.querySelector('.mark[data-region=\"omuz-R\"]').dispatchEvent(new MouseEvent('click', {bubbles:true}))");
+  await page.waitFor("document.getElementById('insight-dialog').open");
+  const sh = await page.eval("document.getElementById('insight-card').textContent");
+  if (!/Ölçüm güvenilir değil, tekrar deneyin/.test(sh)) r.problems.push('omuz kartında güvenilmezlik notu yok');
+  if (/24°|152°|128°/.test(sh)) r.problems.push('güvenilmez kol farkı kartta sayı olarak gösterildi');
+  await shot(page, r, 'kart-omuz', { visual: false });
+  await page.eval("document.getElementById('insight-dialog').close()");
+  // Turuncu baş-boyun → kart: hangi harekette kaç derece, neden kesin sorun değil, ne yapabilirim
+  await page.eval("document.querySelector('.mark[data-region=\"bas-boyun\"]').dispatchEvent(new MouseEvent('click', {bubbles:true}))");
   await page.waitFor("document.getElementById('insight-dialog').open");
   const card = await page.eval("document.getElementById('insight-card').textContent"); // kapalı bölümler dahil
   r.metrics.cardExcerpt = card.slice(0, 400);
-  for (const re of [/Kolları yandan kaldırma sırasında sol taraf 24° daha fazla/, /sol 152°, sağ 128°/, /± 4,2°/, /sağlık sorunu olduğunu göstermez/, /Bu ne demek\?/, /Ne yapabilirim\?/, /2 ayrı ölçümde aynı yönde/]) {
+  for (const re of [/Başını sağa yatırırken sola yatırmaya göre 12° daha az hareket ölçüldü/, /sağ 18°, sol 30°/, /± 2,8°/, /sağlık sorunu olduğunu göstermez/, /Bu ne demek\?/, /Ne yapabilirim\?/, /2 ayrı ölçümde aynı yönde/]) {
     if (!re.test(card)) r.problems.push(`kartta yok: ${re}`);
   }
   await page.eval("document.getElementById('btn-insight-reco').click()");
   const reco = await page.eval("[...document.querySelectorAll('#insight-reco [data-ex]')].map(e => e.dataset.ex)");
   r.metrics.reco = reco;
-  if (!reco.length || reco.includes('bant-kurek')) r.problems.push(`öneriler süzülmedi: ${reco}`);
+  if (!reco.length || reco.includes('bant-acma')) r.problems.push(`öneriler süzülmedi (bandı olmayana bant): ${reco}`);
   await shot(page, r, 'kart', { visual: false });
   // Belirti bildirimi → öneri kilitlenir
   await page.eval("document.getElementById('insight-symptom').click()");
@@ -803,7 +818,7 @@ const insight3d = async (page, r, dev) => {
   await seed(page, insightState());
   await page.goto(`${base}/index.html?nosw&t=3#/bugun`);
   await page.waitFor("document.getElementById('today-insight') !== null", 30000);
-  if (!/Sol omuz|Sağ omuz/.test(await page.eval("document.getElementById('today-insight').textContent"))) r.problems.push('Bugün kartında dikkat çeken bölge yok');
+  if (!/Baş ve boyun/.test(await page.eval("document.getElementById('today-insight').textContent"))) r.problems.push('Bugün kartında dikkat çeken bölge yok');
   await page.eval("location.hash = '#/anatomi?anlat=omuz-R'");
   await page.waitFor("document.body.dataset.anatomyReady==='true'", 90000);
   await page.waitFor("document.querySelectorAll('#insight-markers .imark').length === 8", 20000);

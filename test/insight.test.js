@@ -56,7 +56,7 @@ test('sağ–sol fark (baş yana yatırma) tek ölçümde sarı; aynı yönde ik
   const one = evaluate({ scans: [scan('10-17', { neckL: 30, neckR: 18 })] }, now);
   assert.equal(one.regions['bas-boyun'].status, 'sari');
   const text = observationText(one.regions['bas-boyun'].flagged[0]);
-  assert.match(text, /Baş ve boyun hareket açıklığı sırasında sol taraf 12° daha fazla/); assert.match(text, /sol 30°, sağ 18°/); assert.match(text, /± 2,8°/);
+  assert.equal(text, 'Başını sağa yatırırken sola yatırmaya göre 12° daha az hareket ölçüldü (sağ 18°, sol 30°; fark ± 2,8°).');
   const two = evaluate({ scans: [scan('10-03', { neckL: 29, neckR: 19 }), scan('10-17', { neckL: 30, neckR: 18 })] }, now);
   assert.equal(two.regions['bas-boyun'].status, 'turuncu');
   assert.match(explainRegion(two.regions['bas-boyun']).findings[0].history, /3 Ekim: 10° ± 2,8° · Son: 12° ± 2,8°/);
@@ -75,7 +75,8 @@ test('KOL KALDIRMA (doğrulama bekliyor): 24° fark bile sarı/turuncu üretmez;
   }
   const card = explainRegion(ev.regions['omuz-R']);
   assert.equal(card.findings.length, 0);
-  assert.ok(card.unreliable.some((x) => /Kolları yandan kaldırma: .*Ölçüm güvenilir değil/.test(x)));
+  assert.equal(card.unreliable.length, 1);
+  assert.match(card.unreliable[0], /^Kolları yandan kaldırma: Ölçüm güvenilir değil, tekrar deneyin. Kol başın üstüne/);
   // Duruş ölçümü varsa omuz onunla değerlendirilir; kol farkı yine renk üretmez ve kartta not edilir
   const both = evaluate({ scans: [scan('10-17', { armL: 152, armR: 128, squat: false })] }, now);
   assert.equal(both.regions['omuz-R'].status, 'yesil');
@@ -152,7 +153,7 @@ test('Vücudumun Özeti: yalnızca hesaplanan ölçümlerden; veri yoksa boş du
   assert.equal(s.text, "4 ölçümün 3'ü yeterli görüntü kalitesiyle değerlendirildi.", 'güvenilmez kol testi yeterli sayılmaz');
   assert.equal(s.attention.length, 1);
   assert.ok(s.attention[0].regions.includes('bas-boyun') && s.attention[0].retest);
-  assert.match(s.attention[0].text, /^Baş ve boyun: Baş ve boyun hareket açıklığı sırasında/);
+  assert.match(s.attention[0].text, /^Baş ve boyun: Başını sağa yatırırken sola yatırmaya göre 12° daha az hareket ölçüldü/);
   assert.ok(s.positives.some((p) => /sol tarafla 3, sağ tarafla 3 tekrarı tamamladın/.test(p)));
   assert.ok(s.positives.some((p) => /derinlik tutarlıydı/.test(p)));
   assert.match(s.next, /tekrar edelim/);
@@ -187,7 +188,7 @@ test('asistan: Bana Anlat bulguları yalnızca izinle; veri yoksa açıkça söy
   const shoulder = ask('Sağ omzum neden sarı?');
   assert.match(shoulder, /Sağ omuz \(Belirgin fark görülmedi\)[\s\S]*ölçüm güvenilir değil[\s\S]*sonuç çıkarmıyorum/);
   assert.doesNotMatch(shoulder, /24°/, 'güvenilmez kol farkı asistanda sayı olarak verilmez');
-  assert.match(ask('Boynum neden sarı?'), /Baş ve boyun \(Tekrar ölçüm[\s\S]*sol taraf 12° daha fazla[\s\S]*Genel bilgi:/);
+  assert.match(ask('Boynum neden sarı?'), /Baş ve boyun \(Tekrar ölçüm[\s\S]*12° daha az hareket ölçüldü[\s\S]*Genel bilgi:/);
   assert.match(ask('Dizlerimde ne fark gördün?'), /ölçülmedi[\s\S]*bir şey söyleyemem/);
   assert.match(ask('Hangi egzersizleri deneyebilirim?'), /Baş ve boyun: Çene içe alma/);
   assert.match(ask('Bugün hareketlerimi nasıl yaptım?'), /yeterli görüntü kalitesiyle/);
@@ -196,4 +197,10 @@ test('asistan: Bana Anlat bulguları yalnızca izinle; veri yoksa açıkça söy
   for (const q of ['Vücudumda nerelere dikkat etmeliyim?', 'Sağ omzum neden sarı?', 'Dizlerimde ne fark gördün?']) {
     assert.doesNotMatch(ask(q), /hastalığın var|fıtığın|skolyozun|kas yırtığın|tanı:|risk puanı/i);
   }
+});
+
+test('taraf kalıbı: sağ bölge kartı "Sağ kolunu kaldırırken sol koluna göre X° daha az"; sol kart "daha fazla"', () => {
+  const f = { id: 'kol-kaldirma:abductionAsym', kind: 'asym', unit: '°', value: 8, u: 3.1, sides: { L: { value: 140 }, R: { value: 132 } } };
+  assert.equal(observationText(f, 'R'), 'Sağ kolunu kaldırırken sol koluna göre 8° daha az hareket ölçüldü (sağ 132°, sol 140°; fark ± 3,1°).');
+  assert.equal(observationText(f, 'L'), 'Sol kolunu kaldırırken sağ koluna göre 8° daha fazla hareket ölçüldü (sol 140°, sağ 132°; fark ± 3,1°).');
 });
