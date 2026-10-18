@@ -5,7 +5,7 @@
 // (+X kişinin solu, +Y baş, +Z ön; metre) ve yalnızca işaretin 3B atlas üzerindeki yeridir.
 
 export const BODY_REGIONS = {
-  'bas-boyun': { tr: 'Baş ve boyun', short: 'Boyun', anchor: [0, 1.53, 0.04], topic: 'head-forward', exRegion: 'boyun', highlight: ['mus-head-neck', 'skull', 'spine'] },
+  'bas-boyun': { tr: 'Baş ve boyun', short: 'Boyun', anchor: [0, 1.47, 0.05], topic: 'head-forward', exRegion: 'boyun', highlight: ['mus-head-neck', 'skull', 'spine'] },
   'omuz-L': { tr: 'Sol omuz', short: 'Sol omuz', side: 'L', joint: 'shoulder-L', anchor: [0.17, 1.40, 0.02], topic: 'shoulder-level', exRegion: 'omuz', highlight: ['mus-shoulder-arm', 'upper-limb-bones'] },
   'omuz-R': { tr: 'Sağ omuz', short: 'Sağ omuz', side: 'R', joint: 'shoulder-R', anchor: [-0.17, 1.40, 0.02], topic: 'shoulder-level', exRegion: 'omuz', highlight: ['mus-shoulder-arm', 'upper-limb-bones'] },
   govde: { tr: 'Gövde', short: 'Gövde', anchor: [0, 1.15, 0.10], topic: 'trunk-lateral', exRegion: 'bel', highlight: ['spine', 'mus-back', 'mus-abdomen'] },
