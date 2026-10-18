@@ -139,7 +139,8 @@ function findingsReply(kind, t, context) {
     const ids = REGION_WORDS.find(([re]) => re.test(t))?.[1];
     const sel = ids ? regs.filter((r) => ids.includes(r.id)) : att;
     if (!sel.length) return 'Hangi bölgeyi sorduğunu anlayamadım; örneğin "Sağ omzum neden sarı?" diye sorabilirsin.';
-    const lines = sel.map((r) => (r.status === 'gri' ? `${r.tr}: bu bölge ölçülmedi veya veri güvenilir değildi; hakkında bir şey söyleyemem.` : `${r.tr} (${r.statusTr}): ${r.text.replace(`${r.tr}: `, '')}`));
+    const lines = sel.map((r) => (r.status === 'gri' ? `${r.tr}: bu bölge ölçülmedi veya veri güvenilir değildi; hakkında bir şey söyleyemem.` : `${r.tr} (${r.statusTr}): ${r.text.replace(`${r.tr}: `, '')}`)
+      + (r.unreliable?.length ? ` Not: ${r.unreliable.join('; ')}; bu ölçümden sonuç çıkarmıyorum, tekrar deneyebilirsin.` : ''));
     const flagged = sel.some((r) => r.status === 'sari' || r.status === 'turuncu');
     const intro = flagged && /diz/.test(t) ? 'Dizinde bir hastalık olduğunu söyleyemem. Ancak ölçümüne göre:' : 'Ölçümüne göre:';
     const why = sel.some((r) => r.status === 'sari') ? '\n\nSarı, farkın şimdilik tek ölçümde görüldüğü anlamına gelir; aynı koşullarda tekrar ölçmek en iyi sonraki adımdır.' : sel.some((r) => r.status === 'turuncu') ? '\n\nTuruncu, aynı farkın birden fazla güvenilir ölçümde aynı yönde sürdüğü anlamına gelir.' : '';

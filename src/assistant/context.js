@@ -8,6 +8,7 @@ import { evaluate, regionHeadline } from '../insight/evaluate.js';
 import { bodySummary } from '../insight/summary.js';
 import { recommend } from '../insight/recommend.js';
 import { STATUS } from '../insight/regions.js';
+import { isUnreliable } from '../analysis/validation-status.js';
 
 export const SHARE_CATEGORIES = {
   findings: { tr: 'Bana Anlat bulguları', desc: 'Bölge renkleri (yeşil/sarı/turuncu/gri), ölçülen farkların cümleleri ± belirsizlik, ölçülmeyen bölgeler ve önerilen hafif hareketlerin adları.', sensitive: true },
@@ -46,8 +47,8 @@ export function buildContext(st, share = {}, now = new Date()) {
   }
   if (share.movements && last) {
     const mv = [];
-    for (const res of Object.values(last.movements ?? {})) {
-      for (const m of Object.values(res.metrics ?? {})) if (m.value != null) mv.push({ tr: m.tr, value: m.value, unit: m.unit, u: m.u, experimental: Boolean(m.experimental) });
+    for (const [tid, res] of Object.entries(last.movements ?? {})) {
+      for (const [mid, m] of Object.entries(res.metrics ?? {})) if (m.value != null && !isUnreliable(`${tid}:${mid}`)) mv.push({ tr: m.tr, value: m.value, unit: m.unit, u: m.u, experimental: Boolean(m.experimental) });
     }
     if (mv.length) c.movements = mv;
   }
@@ -65,7 +66,8 @@ export function buildContext(st, share = {}, now = new Date()) {
   if (share.findings && st.scans?.length + (st.trainer?.coachLog?.length ?? 0) > 0) {
     const ev = evaluate(st, now);
     const sm = bodySummary(ev);
-    const regions = Object.values(ev.regions).map((r) => ({ id: r.id, tr: r.tr, status: r.status, statusTr: STATUS[r.status].tr, text: regionHeadline(r) }));
+    const regions = Object.values(ev.regions).map((r) => ({ id: r.id, tr: r.tr, status: r.status, statusTr: STATUS[r.status].tr, text: regionHeadline(r),
+      unreliable: (r.unreliable ?? []).map((x) => `${x.test}: ölçüm güvenilir değil (doğrulama bekliyor)`) }));
     const exercises = {};
     for (const r of Object.values(ev.regions)) {
       if (r.status !== 'sari' && r.status !== 'turuncu') continue;
@@ -99,7 +101,7 @@ export function previewLines(ctx) {
   if (ctx.findings) {
     const f = ctx.findings;
     if (f.quality) lines.push(`Bana Anlat: ${f.quality}`);
-    for (const r of f.regions) lines.push(`Bölge ${r.tr} [${r.statusTr}]: ${r.text}`);
+    for (const r of f.regions) lines.push(`Bölge ${r.tr} [${r.statusTr}]: ${r.text}${r.unreliable?.length ? ` — ${r.unreliable.join('; ')}` : ''}`);
     for (const [k, v] of Object.entries(f.exercises)) lines.push(`Önerilen hareketler (${k}): ${v.join(', ')}`);
   }
   for (const o of ctx.posture ?? []) lines.push(`Duruş: ${o.tr}: ${o.value} ${o.unit} ± ${o.u}${o.experimental ? ' [deneysel]' : ''}${o.distinguishable ? ` → ${o.sense}` : o.distinguishable === false ? ' → nötrden ayırt edilemez' : ''}`);

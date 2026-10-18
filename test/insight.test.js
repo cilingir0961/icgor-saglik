@@ -13,7 +13,8 @@ const pm = (tr, value, u, { neutral = 0, sense = null, grade = 'iyi', experiment
 });
 const mm = (tr, value, u, grade = 'iyi', experimental = false) => ({ tr, unit: '°', value, u, grade, experimental });
 const asym = (L, R) => ({ tr: 'Sağ–sol fark (kol kaldırma)', unit: '°', value: +(L.value - R.value).toFixed(1), u: +Math.hypot(L.u, R.u).toFixed(1), grade: 'iyi', experimental: false });
-function scan(date, { shoulder = 0.5, trunk = 0.3, armL = 150, armR = 148, armU = 3, level = 'known', squat = true, uS = 1.2 } = {}) {
+function scan(date, { shoulder = 0.5, trunk = 0.3, armL = 150, armR = 148, armU = 3, level = 'known', squat = true, uS = 1.2, neckL = null, neckR = null, neckGrade = 'iyi' } = {}) {
+  const nL = mm('Başı sola yatırma', neckL, 2, neckGrade), nR = mm('Başı sağa yatırma', neckR, 2, neckGrade);
   const aL = mm('Sol kol kaldırma açısı (en yüksek)', armL, armU), aR = mm('Sağ kol kaldırma açısı (en yüksek)', armR, armU);
   return {
     id: `s${date}`, date: `2026-${date}T10:00:00.000Z`,
@@ -26,6 +27,8 @@ function scan(date, { shoulder = 0.5, trunk = 0.3, armL = 150, armR = 148, armU 
       } },
     },
     movements: {
+      ...(neckL != null ? { boyun: { tr: 'Baş ve boyun hareket açıklığı', conditions: cond('front', { level }), reps: {}, metrics: { latFlexL: nL, latFlexR: nR,
+        latAsym: { tr: 'Sağ–sol fark (yana yatırma)', unit: '°', value: neckL - neckR, u: +Math.hypot(2, 2).toFixed(1), grade: neckGrade, experimental: false } } } } : {}),
       'kol-kaldirma': { tr: 'Kolları yandan kaldırma', conditions: cond('front', { level }), reps: { L: 3, R: 3 }, metrics: { abductionL: aL, abductionR: aR, abductionAsym: asym(aL, aR) } },
       ...(squat ? { comelme: { tr: 'Kontrollü çömelme', conditions: cond('side'), reps: { n: 3 }, metrics: {
         kneeMin: mm('En küçük diz açısı (en derin an)', 92, 6.5), hipMin: mm('En küçük kalça açısı', 80, 6.5),
@@ -48,18 +51,43 @@ test('simetrik ve belirsizlik içindeki farklar: ölçülen bölgeler yeşil, ö
   assert.equal(noSquat.regions.kalca.status, 'gri', 'kalça seviyesi ölçülemedi → gri');
 });
 
-test('sağ–sol kol farkı tek ölçümde sarı; aynı yönde iki ölçümde turuncu; ters yönde sarı kalır', () => {
+test('sağ–sol fark (baş yana yatırma) tek ölçümde sarı; aynı yönde iki ölçümde turuncu; ters yönde sarı kalır', () => {
   const now = new Date('2026-10-18');
-  const one = evaluate({ scans: [scan('10-17', { armL: 152, armR: 128 })] }, now);
-  assert.equal(one.regions['omuz-R'].status, 'sari');
-  const f = one.regions['omuz-R'].flagged[0];
-  const text = observationText(f);
-  assert.match(text, /sol taraf 24° daha fazla/); assert.match(text, /sol 152°, sağ 128°/); assert.match(text, /± 4,2°/);
-  const two = evaluate({ scans: [scan('10-03', { armL: 150, armR: 130 }), scan('10-17', { armL: 152, armR: 128 })] }, now);
-  assert.equal(two.regions['omuz-R'].status, 'turuncu');
-  assert.match(explainRegion(two.regions['omuz-R']).findings[0].history, /3 Ekim: 20° ± 4,2° · Son: 24° ± 4,2°/);
-  const flip = evaluate({ scans: [scan('10-03', { armL: 128, armR: 152 }), scan('10-17', { armL: 152, armR: 128 })] }, now);
-  assert.equal(flip.regions['omuz-R'].status, 'sari');
+  const one = evaluate({ scans: [scan('10-17', { neckL: 30, neckR: 18 })] }, now);
+  assert.equal(one.regions['bas-boyun'].status, 'sari');
+  const text = observationText(one.regions['bas-boyun'].flagged[0]);
+  assert.match(text, /Baş ve boyun hareket açıklığı sırasında sol taraf 12° daha fazla/); assert.match(text, /sol 30°, sağ 18°/); assert.match(text, /± 2,8°/);
+  const two = evaluate({ scans: [scan('10-03', { neckL: 29, neckR: 19 }), scan('10-17', { neckL: 30, neckR: 18 })] }, now);
+  assert.equal(two.regions['bas-boyun'].status, 'turuncu');
+  assert.match(explainRegion(two.regions['bas-boyun']).findings[0].history, /3 Ekim: 10° ± 2,8° · Son: 12° ± 2,8°/);
+  const flip = evaluate({ scans: [scan('10-03', { neckL: 18, neckR: 30 }), scan('10-17', { neckL: 30, neckR: 18 })] }, now);
+  assert.equal(flip.regions['bas-boyun'].status, 'sari');
+});
+
+test('KOL KALDIRMA (doğrulama bekliyor): 24° fark bile sarı/turuncu üretmez; "Ölçüm güvenilir değil, tekrar deneyin"', () => {
+  const now = new Date('2026-10-18');
+  const onlyArm = scan('10-17', { armL: 152, armR: 128, squat: false });
+  delete onlyArm.captures.front;
+  const ev = evaluate({ scans: [scan('10-03', { armL: 150, armR: 128, squat: false }), onlyArm] }, now);
+  for (const id of ['omuz-L', 'omuz-R']) {
+    assert.equal(ev.regions[id].status, 'gri', id);
+    assert.match(ev.regions[id].reason, /Ölçüm güvenilir değil, tekrar deneyin/);
+  }
+  const card = explainRegion(ev.regions['omuz-R']);
+  assert.equal(card.findings.length, 0);
+  assert.ok(card.unreliable.some((x) => /Kolları yandan kaldırma: .*Ölçüm güvenilir değil/.test(x)));
+  // Duruş ölçümü varsa omuz onunla değerlendirilir; kol farkı yine renk üretmez ve kartta not edilir
+  const both = evaluate({ scans: [scan('10-17', { armL: 152, armR: 128, squat: false })] }, now);
+  assert.equal(both.regions['omuz-R'].status, 'yesil');
+  assert.equal(both.regions['omuz-R'].flagged.length, 0);
+  assert.ok(explainRegion(both.regions['omuz-R']).unreliable.length >= 1);
+  assert.equal(bodySummary(both).attention.length, 0, 'özette kol farkı dikkat noktası olarak yer almaz');
+  // Kamera koçu da aynı kural: güvenilir sayılan koç oturumu bile kol farkıyla renk üretmez
+  const coach = evaluate({ scans: [], trainer: { coachLog: [
+    { date: '2026-10-12', kind: 'arm-raise', reliable: true, asym: { value: 25, u: 9 }, extreme: { value: 150, u: 7 } },
+    { date: '2026-10-15', kind: 'arm-raise', reliable: true, asym: { value: 24, u: 9 }, extreme: { value: 151, u: 7 } }] } }, now);
+  assert.equal(coach.regions['omuz-L'].status, 'gri');
+  assert.match(coach.regions['omuz-L'].reason, /güvenilir değil/);
 });
 
 test('kötü kamera açısı (eğim bilinmiyor) → büyük belirsizlik, fark belirgin sayılmaz; açıklamada eğim uyarısı', () => {
@@ -72,31 +100,24 @@ test('kötü kamera açısı (eğim bilinmiyor) → büyük belirsizlik, fark be
 });
 
 test('düşük güvenilirlik ve eksik eklem: sonuç gösterilmez (gri)', () => {
-  const s = scan('10-17', { squat: false });
-  s.movements['kol-kaldirma'].metrics = { abductionL: mm('Sol', null, null, 'ölçülemedi'), abductionR: mm('Sağ', 140, 15, 'düşük'), abductionAsym: { tr: 'fark', unit: '°', value: null, u: null, grade: 'ölçülemedi' } };
+  const s = scan('10-17', { squat: false, neckL: 30, neckR: 18, neckGrade: 'düşük' });
   delete s.captures.front;
+  s.movements.boyun.metrics.latFlexR = mm('Başı sağa yatırma', null, null, 'ölçülemedi');
   const ev = evaluate({ scans: [s] }, new Date('2026-10-18'));
-  assert.equal(ev.regions['omuz-R'].status, 'gri');
-  assert.match(ev.regions['omuz-R'].reason, /güvenilirliği düşük/);
-  assert.equal(ev.regions['omuz-L'].status, 'gri');
+  assert.equal(ev.regions['bas-boyun'].status, 'gri');
+  assert.match(ev.regions['bas-boyun'].reason, /güvenilirliği düşük/);
 });
 
-test('kamera koçu: düşük fps oturumu (güvenilmez) kullanılmaz; güvenilir iki oturumda süren fark turuncu değil (deneysel → en fazla sarı)', () => {
-  const now = new Date('2026-10-18');
-  const log = [
-    { date: '2026-10-10', kind: 'arm-raise', reliable: false, asym: { value: 30, u: 5 } },
-  ];
-  assert.equal(evaluate({ scans: [], trainer: { coachLog: log } }, now).regions['omuz-L'].status, 'gri');
-  log.push({ date: '2026-10-12', kind: 'arm-raise', reliable: true, asym: { value: 25, u: 9 }, extreme: { value: 150, u: 7 } },
-    { date: '2026-10-15', kind: 'arm-raise', reliable: true, asym: { value: 24, u: 9 }, extreme: { value: 151, u: 7 } });
-  const ev = evaluate({ scans: [], trainer: { coachLog: log } }, now);
-  assert.equal(ev.regions['omuz-L'].status, 'sari');
-  assert.match(ev.regions['omuz-L'].reason, /deneysel/);
+test('deneysel gösterge iki ölçümde aynı yönde fark gösterse bile en fazla sarı (turuncu değil)', () => {
+  const hip = (d) => { const x = scan(d, { squat: false }); x.captures.front.metrics.hipLevel = pm('Kalça seviyesi', 6, 1.5, { experimental: true, sense: 'sol kalça daha yüksek' }); return x; };
+  const ev = evaluate({ scans: [hip('10-03'), hip('10-17')] }, new Date('2026-10-18'));
+  assert.equal(ev.regions.kalca.status, 'sari');
+  assert.match(ev.regions.kalca.reason, /deneysel/);
 });
 
 test('açıklama kartı: ne/hangi ölçüm/güvenilirlik/olası nedenler/ne yapmalı; teşhis dili yok', () => {
-  const ev = evaluate({ scans: [scan('10-17', { armL: 152, armR: 128 })] }, new Date('2026-10-18'));
-  const c = explainRegion(ev.regions['omuz-R']);
+  const ev = evaluate({ scans: [scan('10-17', { neckL: 30, neckR: 18 })] }, new Date('2026-10-18'));
+  const c = explainRegion(ev.regions['bas-boyun']);
   const f = c.findings[0];
   assert.ok(f.text && f.meaning && f.basis && f.reliability && f.caveats.length);
   assert.match(c.whatIs, /sağlık sorunu olduğunu göstermez/);
@@ -126,12 +147,12 @@ test('öneriler: seviye/ekipman süzgeci; ağrı, uyuşma, baş dönmesi ve kıs
 
 test('Vücudumun Özeti: yalnızca hesaplanan ölçümlerden; veri yoksa boş durum', () => {
   assert.equal(bodySummary(evaluate({ scans: [] })).empty, true);
-  const ev = evaluate({ scans: [scan('10-17', { armL: 152, armR: 128 })] }, new Date('2026-10-18'));
+  const ev = evaluate({ scans: [scan('10-17', { neckL: 30, neckR: 18 })] }, new Date('2026-10-18'));
   const s = bodySummary(ev);
-  assert.equal(s.text, "3 ölçümün 3'ü yeterli görüntü kalitesiyle değerlendirildi.");
-  assert.equal(s.attention.length, 1, 'aynı ölçüme dayanan iki omuz tek cümlede');
-  assert.ok(s.attention[0].regions.includes('omuz-R') && s.attention[0].retest);
-  assert.match(s.attention[0].text, /^Sol omuz ve Sağ omuz: Kolları yandan kaldırma sırasında/);
+  assert.equal(s.text, "4 ölçümün 3'ü yeterli görüntü kalitesiyle değerlendirildi.", 'güvenilmez kol testi yeterli sayılmaz');
+  assert.equal(s.attention.length, 1);
+  assert.ok(s.attention[0].regions.includes('bas-boyun') && s.attention[0].retest);
+  assert.match(s.attention[0].text, /^Baş ve boyun: Baş ve boyun hareket açıklığı sırasında/);
   assert.ok(s.positives.some((p) => /sol tarafla 3, sağ tarafla 3 tekrarı tamamladın/.test(p)));
   assert.ok(s.positives.some((p) => /derinlik tutarlıydı/.test(p)));
   assert.match(s.next, /tekrar edelim/);
@@ -154,17 +175,21 @@ import { contextToText } from '../server/ai/chat.mjs';
 import { buildContext, previewLines } from '../src/assistant/context.js';
 
 test('asistan: Bana Anlat bulguları yalnızca izinle; veri yoksa açıkça söylenir; teşhis dili yok', () => {
-  const st = { scans: [scan('10-17', { armL: 152, armR: 128, squat: false })], profile: { level: 'baslangic', location: 'ev', equipment: [] }, trainer: {} };
+  const st = { scans: [scan('10-17', { armL: 152, armR: 128, squat: false, neckL: 30, neckR: 18 })], profile: { level: 'baslangic', location: 'ev', equipment: [] }, trainer: {} };
   assert.equal(buildContext(st, {}), null, 'varsayılan: hiçbir şey paylaşılmaz');
   const ctx = buildContext(st, { findings: true }, new Date('2026-10-18'));
   assert.ok(ctx.findings.regions.length === 8 && !ctx.profile);
-  assert.ok(previewLines(ctx).some((l) => /Bölge Sağ omuz \[Tekrar ölçüm/.test(l)));
+  assert.ok(previewLines(ctx).some((l) => /Bölge Baş ve boyun \[Tekrar ölçüm/.test(l)));
+  assert.ok(previewLines(ctx).some((l) => /Bölge Sağ omuz \[Belirgin fark görülmedi\][^\n]*Kolları yandan kaldırma: ölçüm güvenilir değil/.test(l)));
   assert.match(contextToText(ctx), /Bana Anlat bulguları/);
   const ask = (q, c = ctx) => mockReply({ messages: [{ role: 'user', content: q }], context: c, level: 'normal' });
   assert.match(ask('Vücudumda nerelere dikkat etmeliyim?'), /Ölçümüne göre dikkat çeken[\s\S]*Ölçülmeyen bölgeler: [^\n]*Sol diz/);
-  assert.match(ask('Sağ omzum neden sarı?'), /Sağ omuz \(Tekrar ölçüm[\s\S]*sol taraf 24° daha fazla[\s\S]*Genel bilgi:/);
+  const shoulder = ask('Sağ omzum neden sarı?');
+  assert.match(shoulder, /Sağ omuz \(Belirgin fark görülmedi\)[\s\S]*ölçüm güvenilir değil[\s\S]*sonuç çıkarmıyorum/);
+  assert.doesNotMatch(shoulder, /24°/, 'güvenilmez kol farkı asistanda sayı olarak verilmez');
+  assert.match(ask('Boynum neden sarı?'), /Baş ve boyun \(Tekrar ölçüm[\s\S]*sol taraf 12° daha fazla[\s\S]*Genel bilgi:/);
   assert.match(ask('Dizlerimde ne fark gördün?'), /ölçülmedi[\s\S]*bir şey söyleyemem/);
-  assert.match(ask('Hangi egzersizleri deneyebilirim?'), /Kolları yandan kaldırma|Kol çevirme/);
+  assert.match(ask('Hangi egzersizleri deneyebilirim?'), /Baş ve boyun: Çene içe alma/);
   assert.match(ask('Bugün hareketlerimi nasıl yaptım?'), /yeterli görüntü kalitesiyle/);
   assert.match(ask('Geçen haftaya göre ne değişti?'), /göremiyorum/);
   assert.match(ask('Vücudumda nerelere dikkat etmeliyim?', null), /göremiyorum[\s\S]*bir şey söyleyemem/);

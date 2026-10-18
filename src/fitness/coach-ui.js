@@ -7,6 +7,7 @@ import { videoToDisplay } from '../camera/ar-fit.js';
 import { Voice } from '../scan/voice.js';
 import { h } from '../scan/dom.js';
 import { createCoach, COACH_KINDS } from './coach.js';
+import { isUnreliable } from '../analysis/validation-status.js';
 
 const LINKS = [[11, 12], [11, 23], [12, 24], [23, 24], [11, 13], [13, 15], [12, 14], [14, 16], [23, 25], [25, 27], [24, 26], [26, 28]];
 const NUM_TR = ['sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz', 'on', 'on bir', 'on iki', 'on üç', 'on dört', 'on beş', 'on altı', 'on yedi', 'on sekiz', 'on dokuz', 'yirmi'];
@@ -107,7 +108,9 @@ export function openCoach({ exercise, onClose }) {
     dbg.angle = r.angle;
     $count.textContent = String(r.reps);
     const shown = Object.entries(r.angle).filter(([, v]) => v != null).map(([S, v]) => `${S === 'L' ? 'Sol' : 'Sağ'} ${K.joint} ${Math.round(v)}°`);
-    $angle.textContent = shown.length ? `${shown.join(' · ')} (±6°, görüntü düzleminde)` : 'Eklemler görünmüyor';
+    $angle.textContent = !shown.length ? 'Eklemler görünmüyor'
+      : isUnreliable(`coach:${exercise.camera}:extreme`) ? 'Tekrarlar sayılıyor · açı ölçümü şu an güvenilir değil'
+        : `${shown.join(' · ')} (±6°, görüntü düzleminde)`;
     if (r.newRep) {
       voice.say(NUM_TR[r.reps] ?? String(r.reps), { force: true, interrupt: true });
       if (target && r.reps >= target) {
@@ -153,7 +156,7 @@ export function openCoach({ exercise, onClose }) {
       h('div', { class: 'coach-summary', id: 'coach-summary' },
         h('h3', {}, `${s.reps} tekrar ${s.reliable ? '' : '(yaklaşık)'}`),
         s.reliable
-          ? h('ul', {}, s.observations.map((o) => h('li', {}, o)))
+          ? (s.angleUnreliable ? h('p', { class: 'notice', id: 'coach-angle-note' }, s.angleNote) : h('ul', {}, s.observations.map((o) => h('li', {}, o))))
           : h('ul', { class: 'warnlist' }, s.reasons.map((o) => h('li', {}, o))),
         h('p', { class: 'muted small' }, 'Sentetik figürle doğrulandı; gerçek kişilerde doğruluğu henüz ölçülmedi. Gözlemler tanı veya form değerlendirmesi değildir.'),
         h('div', { class: 'actions' },

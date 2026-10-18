@@ -68,6 +68,7 @@ export function explainRegion(r) {
   if (r.status === 'turuncu') next.push('Bu fark birkaç ölçümde sürdü. Hareketi rahat yapabildiğin aralıkta, kontrollü egzersizlerle çalışabilirsin; ağrı, uyuşma veya güç kaybı varsa bir fizyoterapist ya da hekime göstermen iyi olur.');
   if (r.status === 'yesil') next.push('Haftalık programına devam edebilirsin; ilerlemeyi görmek için birkaç hafta sonra aynı koşullarda tekrar ölç.');
   return {
+    unreliable: (r.unreliable ?? []).map((x) => `${x.test}: ${x.tr} — Ölçüm güvenilir değil, tekrar deneyin. ${x.why}`),
     title: r.tr, status: r.status, headline: r.reason,
     findings, measuredOk,
     whatIs: findings.length ? NOT_DIAGNOSIS : '',

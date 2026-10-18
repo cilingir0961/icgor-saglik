@@ -9,6 +9,7 @@
 //    coach-bench.mjs bu modül için ayrıca ölçer). Sağ–sol fark yalnızca |fark| > 2u ise "ayırt edilebilir".
 
 import { MP, angleAt, dist, median, mad, mid, sub, add } from '../analysis/geometry.js';
+import { metricStatus, STATUS_TEXT } from '../analysis/validation-status.js';
 
 export const U_SYS = 6;
 const VIS = 0.6;
@@ -62,9 +63,10 @@ export function summarize(values, uSys = U_SYS) {
 
 /**
  * @param {keyof COACH_KINDS} kind
- * @param {{width?:number, height?:number, calibFrames?:number}} o
+ * @param {{width?:number, height?:number, calibFrames?:number, validationGate?:boolean}} o
+ *   validationGate=false yalnızca doğruluk kıyası (scripts/coach-bench.mjs) içindir: açılar doğrulama durumundan bağımsız döner.
  */
-export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {}) {
+export function createCoach(kind, { width = 1, height = 1, calibFrames = 8, validationGate = true } = {}) {
   const K = COACH_KINDS[kind];
   if (!K) throw new Error(`bilinmeyen koç hareketi: ${kind}`);
   const sides = Object.fromEntries(SIDES.map(([S]) => [S, {
@@ -186,10 +188,16 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8 } = {
         const u = +Math.hypot(per.L.extreme.u, per.R.extreme.u).toFixed(1);
         asym = { value, u, distinguishable: Math.abs(value) > 2 * u };
       }
+      // Tekrar sayımı ile açı ölçümü ayrı değerlendirilir: açı ölçümü doğrulama listesinde "güvenilmez" ise
+      // (validation-status.js) açılar, tempo yorumu ve sağ–sol fark gösterilmez; tekrar sayısı gösterilir.
+      const angleStatus = metricStatus(`coach:${kind}:extreme`);
+      const angleUnreliable = validationGate && angleStatus.status === 'guvenilmez';
+      if (angleUnreliable) asym = null;
       return {
+        angleUnreliable, angleNote: angleUnreliable ? `${STATUS_TEXT.guvenilmez} ${angleStatus.why}` : null,
         kind, tr: K.tr, reps, coverage: +coverage.toFixed(2), fps, durationS: lastT != null ? +(lastT - firstT).toFixed(1) : 0, reliable, reasons,
-        sides: reliable ? per : null, asym,
-        observations: reliable ? observations(K, per, asym) : [],
+        sides: reliable && !angleUnreliable ? per : null, asym,
+        observations: reliable && !angleUnreliable ? observations(K, per, asym) : [],
       };
     },
   };

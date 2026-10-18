@@ -91,7 +91,7 @@ export function contextToText(c) {
     const f = c.findings;
     out.push(`Bana Anlat bulguları (kamera, yaklaşık; teşhis değildir)${f.synthetic ? ' [DEMO/SENTETİK VERİ]' : ''}:`);
     if (f.quality) out.push(`- ${s(f.quality)}`);
-    for (const r of f.regions.slice(0, 10)) out.push(`- ${s(r.tr)} [${s(r.statusTr)}]: ${s(r.text)}`);
+    for (const r of f.regions.slice(0, 10)) out.push(`- ${s(r.tr)} [${s(r.statusTr)}]: ${s(r.text)}${Array.isArray(r.unreliable) && r.unreliable.length ? ` — ${r.unreliable.slice(0, 3).map(s).join('; ')}` : ''}`);
     for (const [k, v] of Object.entries(f.exercises ?? {}).slice(0, 8)) out.push(`- Önerilen hafif hareketler (${s(k)}): ${(Array.isArray(v) ? v : []).slice(0, 4).map(s).join(', ')}`);
   }
   if (Array.isArray(c.posture)) {

@@ -29,6 +29,7 @@ export function summaryCard(store, { compact = false } = {}) {
       h('p', { class: 'sub' }, `${sm.title} · ${dateTr(sm.date)}`),
       sm.synthetic ? h('p', { class: 'warnline' }, 'DEMO / SENTETİK VERİ — gerçek ölçüm değildir.') : null,
       h('p', { class: 'big-line', id: 'insight-quality' }, sm.text),
+      sm.unreliable?.length ? h('ul', { class: 'ilist small muted', id: 'insight-unreliable-tests' }, sm.unreliable.map((x) => h('li', {}, x))) : null,
       sm.attention.length ? [h('h4', {}, 'Dikkat çeken noktalar'), h('ul', { class: 'ilist' }, sm.attention.map((a) => h('li', {}, statusChip(a.status), ' ', a.text)))]
         : h('p', {}, 'Ölçülen bölgelerde belirsizliği aşan belirgin bir fark görülmedi.'),
       !compact && sm.positives.length ? [h('h4', {}, 'Olumlu gözlemler'), h('ul', { class: 'ilist ok' }, sm.positives.map((p) => h('li', {}, p)))] : null,

@@ -74,14 +74,24 @@ test('kameraya doğru kısalan segment o karede ölçülmez', () => {
   assert.equal(r.angle.L, null);
 });
 
-test('kol kaldırma: iki kol ayrı sayılır; fark yalnızca 2u dışında ayırt edilebilir', () => {
+test('kol kaldırma: doğrulama listesinde "güvenilmez" → tekrar sayılır, açı/fark/yorum gösterilmez', () => {
   const c = createCoach('arm-raise');
+  run(c, (t) => { const k = Math.sin(((t % 2) / 2) * Math.PI); return armFrame(20 + 140 * k, 20 + 100 * k); }, 8.5);
+  const s = c.summary();
+  assert.equal(s.reps, 4, 'tekrar sayımı etkilenmez');
+  assert.equal(s.angleUnreliable, true);
+  assert.equal(s.asym, null); assert.equal(s.sides, null); assert.deepEqual(s.observations, []);
+  assert.match(s.angleNote, /Ölçüm güvenilir değil, tekrar deneyin/);
+});
+
+test('kol kaldırma algoritması (doğrulama kapısı kapalı, yalnızca kıyas için): iki kol ayrı; fark 2u kuralı', () => {
+  const c = createCoach('arm-raise', { validationGate: false });
   run(c, (t) => { const k = Math.sin(((t % 2) / 2) * Math.PI); return armFrame(20 + 140 * k, 20 + 100 * k); }, 8.5);
   const s = c.summary();
   assert.equal(s.reps, 4);
   assert.ok(Math.abs(s.sides.L.extreme.value - 160) < 3 && Math.abs(s.sides.R.extreme.value - 120) < 3);
   assert.equal(s.asym.distinguishable, true);
-  const c2 = createCoach('arm-raise');
+  const c2 = createCoach('arm-raise', { validationGate: false });
   run(c2, (t) => { const k = Math.sin(((t % 2) / 2) * Math.PI); return armFrame(20 + 140 * k, 20 + 136 * k); }, 8.5);
   assert.equal(c2.summary().asym.distinguishable, false);
 });

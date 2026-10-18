@@ -59,8 +59,8 @@ async function main() {
   try {
     for (const [id, S] of Object.entries(SEQS)) {
       if (ONLY && !ONLY.includes(id)) continue;
-      const A = createCoach(S.kind, { width: W, height: H });
-      const T = createCoach(S.kind, { width: W, height: H });
+      const A = createCoach(S.kind, { width: W, height: H, validationGate: false });
+      const T = createCoach(S.kind, { width: W, height: H, validationGate: false });
       const meas = [], tru = [];
       for (const [i, p] of S.frames.entries()) {
         const r = await page.eval(`window.run(${JSON.stringify(p)})`);
