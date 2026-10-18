@@ -1,4 +1,4 @@
-# Fikirler: değerlendirme ve durum (v0.5 – v0.6)
+# Fikirler: değerlendirme ve durum (v0.5 – v0.7)
 
 Ölçütler: **Uygulanabilirlik** (bu mimaride, web/PWA, cihaz üzerinde), **Doğruluk** (ölçülebilir mi,
 nasıl doğrulanır), **Maliyet** (geliştirme + çalışma: pil/ısı/bellek; lisans), **Yarar** (kullanıcıya).
@@ -79,3 +79,23 @@ Değerlendirme: Yarar · Uygulanabilirlik · Gerekli donanım · Doğruluk · Ma
 | 16 | Antrenman sırasında **kalp hızı tahmini (kamera rPPG)** | — | düşük | kamera | hareket halinde güvenilmez | — | sağlık iddiası riski | ⛔ |
 | 17 | Kilo/yağ oranı "fotoğraftan tahmin" | — | düşük | kamera | doğrulanamaz | — | yanlış yönlendirme | ⛔ (CLAUDE.md: iç yağ gösterilmez) |
 | 18 | Takviye/beslenme planı önerisi | — | — | — | kanıt ve kişiye özgü değerlendirme gerekir | — | sağlık riski | ⛔ (uzmana yönlendirme) |
+
+## v0.7 — Bana Anlat ve bütünleşik deneyim
+
+Tasarım ilkesi: yeni ekran kalabalığı yerine tek akış — **Bugün** (en önemli tek cümle) → **Bana Anlat** (harita +
+özet) → **bölge kartı** (ne, ne kadar güvenilir, ne yapmalı) → **3B vücut** / **antrenman** / **asistan**.
+
+| # | Fikir | Yarar | Uygulanabilirlik | Doğruluk | Risk | Durum |
+|---|---|---|---|---|---|---|
+| 1 | **Bugün nerelere dikkat etmeliyim?** kartı (Bugün ekranında tek cümle) | Günlük farkındalık | yüksek | ölçüme bağlı | düşük | ✅ |
+| 2 | **Vücudumu keşfet**: 3B'de işaretler + bölge kartı + "3B kaslar" | Ölçüm ile anatomiyi bağlar | yüksek | atlas genel; etiketli | düşük | ✅ |
+| 3 | **Hareketimi karşılaştır**: kartta aynı göstergenin önceki karşılaştırılabilir ölçümleri (tarih, değer ± u) | Değişimi dürüstçe gösterir | yüksek | MDC/2u kuralı | düşük | ✅ |
+| 4 | Aynı ölçüme dayanan bölgeleri tek cümlede birleştirme (iki omuz → tek bulgu) | Tekrarı ve kaygıyı azaltır | yüksek | — | yok | ✅ |
+| 5 | "Bu bölgede ağrı/uyuşma/güç kaybı var" işareti → öneri kilidi + yönlendirme | Güvenlik | yüksek | — | riski azaltır | ✅ |
+| 6 | Çevrim içi TTS sesini reddetme (yalnızca cihaz içi) | Gizlilik | yüksek | — | riski azaltır | ✅ |
+| 7 | Büyük yazı (1,15× ölçek) | Erişilebilirlik | yüksek | — | yok | ✅ |
+| 8 | Tekrar ölçüm sihirbazı: sarı bölge için yalnızca ilgili testi aynı koşullarda (mesafe/ışık kontrol listesi) yeniden çektirme | Sarı → yeşil/turuncu kararını hızlandırır | orta | koşul eşleştirme mevcut | düşük | 📝 |
+| 9 | Bölgeye özel 4D "doğru hareket" SİMÜLASYONU (ör. kol kaldırma) karttan | Hareketi öğretir | orta | simülasyon etiketli | düşük | 📝 |
+| 10 | Haftalık "Bana Anlat" bildirimi (genel metin, ayrıntı uygulamada) | Süreklilik | yüksek | — | kilit ekranında sağlık ayrıntısı olmamalı | 📝 |
+| 11 | Risk puanı / "hastalık olasılığı" | — | — | doğrulanamaz | yanlış yönlendirme | ⛔ |
+| 12 | Kırmızı "tehlike" rengi | — | — | — | kaygı ve tıbbi ima | ⛔ |

@@ -52,6 +52,7 @@ export function openInsightCard(regionId, { store, onShow3D, from = 'insight' })
         c.findings.map((f) => h('section', { class: 'ifinding', dataset: { finding: f.id } },
           h('p', { class: 'iobs' }, f.text),
           h('p', { class: 'small muted' }, `Dayandığı ölçüm: ${f.basis}`),
+          f.history ? h('p', { class: 'small ihistory' }, f.history) : null,
           h('details', { open: true }, h('summary', {}, 'Bu ne demek?'), h('p', {}, f.meaning), h('p', {}, c.whatIs)),
           h('details', {}, h('summary', {}, 'Ölçüm ne kadar güvenilir?'), h('p', {}, f.reliability),
             h('p', { class: 'small' }, 'Sonucu etkileyebilecek kamera kaynaklı nedenler:'), h('ul', { class: 'small' }, f.caveats.map((x) => h('li', {}, x)))))),

@@ -57,6 +57,7 @@ test('sağ–sol kol farkı tek ölçümde sarı; aynı yönde iki ölçümde tu
   assert.match(text, /sol taraf 24° daha fazla/); assert.match(text, /sol 152°, sağ 128°/); assert.match(text, /± 4,2°/);
   const two = evaluate({ scans: [scan('10-03', { armL: 150, armR: 130 }), scan('10-17', { armL: 152, armR: 128 })] }, now);
   assert.equal(two.regions['omuz-R'].status, 'turuncu');
+  assert.match(explainRegion(two.regions['omuz-R']).findings[0].history, /3 Ekim: 20° ± 4,2° · Son: 24° ± 4,2°/);
   const flip = evaluate({ scans: [scan('10-03', { armL: 128, armR: 152 }), scan('10-17', { armL: 152, armR: 128 })] }, now);
   assert.equal(flip.regions['omuz-R'].status, 'sari');
 });

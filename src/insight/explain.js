@@ -6,6 +6,8 @@ import { TOPICS } from '../anatomy/posture-info.js';
 import { BODY_REGIONS } from './regions.js';
 import { observationText, fmt, dateTr } from './evaluate.js';
 
+const un = (f) => (f.unit === '°' ? '°' : ` ${f.unit}`);
+
 /** Göstergeye göre "Bu ne demek?" metni. */
 const MEANING = {
   shoulderLevel: 'Omuzlarından biri diğerinden biraz daha yukarıda göründü. Çoğu insanda küçük bir sağ–sol farkı olağandır; baskın el, çanta taşıma alışkanlığı veya o anki duruşun bunu etkileyebilir.',
@@ -55,6 +57,7 @@ export function explainRegion(r) {
     basis: `${f.test}${f.date ? `, ${dateTr(f.date)}` : ''}${f.source === 'coach' ? '' : ' taraması'}.`,
     reliability: reliabilityText(f),
     caveats: caveats(f),
+    history: f.history?.length ? `Önceki karşılaştırılabilir ölçümler: ${f.history.map((x) => `${dateTr(x.date)}: ${fmt(x.value)}${un(f)} ± ${fmt(x.u)}${un(f)}`).join(' · ')} · Son: ${fmt(f.value)}${un(f)} ± ${fmt(f.u)}${un(f)}.` : null,
   }));
   const measuredOk = r.items.filter((e) => e.reliable && !e.flagged).map((e) => (e.kind === 'measure' || e.kind === 'consistency'
     ? `${e.tr}: ${fmt(e.value)}${e.unit === '°' ? '°' : ` ${e.unit}`} ± ${fmt(e.u)} (${e.test}).`

@@ -1,6 +1,6 @@
 # İçGör (icgor-saglik)
 
-Mobil öncelikli **3B anatomi, duruş/hareket analizi ve kişisel fitness asistanı** araştırma prototipi (v0.6).
+Mobil öncelikli **3B anatomi, duruş/hareket analizi ve kişisel fitness asistanı** araştırma prototipi (v0.7).
 
 > **Araştırma ve eğitim prototipidir. Tıbbi cihaz değildir, tanı koymaz.**
 > Kamera vücudun yalnızca dış yüzeyini görür. Gösterilen organlar genel bir referans anatomi modelidir
@@ -11,6 +11,7 @@ Mobil öncelikli **3B anatomi, duruş/hareket analizi ve kişisel fitness asista
 
 | Ekran | Ne yapar | Veri sınıfı |
 |---|---|---|
+| **Bana Anlat** (v0.7) | "Vücudumda nerelere dikkat etmeliyim?" — ölçülen duruş/hareket farkları 3B vücutta ve haritada renkli işaretler (yeşil: belirgin fark yok, sarı: tekrar ölç, turuncu: birden fazla ölçümde süren fark, gri: ölçülmedi). Dokununca: hangi harekette kaç derece, ± belirsizlik, neden kesin sağlık sorunu anlamına gelmediği, kamera kaynaklı nedenler, uygun hafif hareketler. Vücudumun Özeti, isteğe bağlı cihaz içi sesli anlatım. **Teşhis değildir** ([`docs/INSIGHT.md`](docs/INSIGHT.md)) | Kamera ölçümü (yaklaşık) + atlas |
 | **Bugün** (v0.6) | Günün antrenmanı, adımlar (uyarlanır hedef), su/uyku/mola alışkanlıkları, son tarama, asistan kısayolları | Kullanıcı kaydı |
 | **Antrenman** (v0.6) | Profil + 7 soruluk güvenlik ön değerlendirmesi → haftalık plan (38 egzersiz; ev/salon, ekipman, kısıtlı bölgeler); oturumda tamamla, dinlenme sayacı, kolaylaştır/zorlaştır/değiştir/ertele, 3B hedef kaslar; geri bildirim (ağrı → yük artmaz, göğüs ağrısı → 112). **Kamera koçu** (deneysel): tekrar, açı, tempo, sağ–sol farkı, güvenilirlik kapısı | Genel rehberlik; kamera ölçümü (yaklaşık) |
 | **Asistan** (v0.6) | Türkçe sohbet; anahtarsız **demo** sağlayıcı (varsayılan), OpenAI yalnızca sunucu tarafı ve açık onayla; paylaşım varsayılan kapalı, önizlemeli; acil durumda 112 | Metin; seçilen sayısal özetler |
@@ -48,7 +49,7 @@ npm run build:anatomy       # 3B modelleri sabitlenmiş kaynaklardan yeniden ür
 npm run vendor              # three.js / MediaPipe dosyalarını vendor/ altına kopyala
 ```
 
-Bağlantılar: `#/bugun`, `#/antrenman`, `#/asistan`, `#/aktivite`, `#/gelisim`, `#/bildirimler`, `#/verilerim`, `#/anatomi`, `#/kamera`, `#/tarama`, `#/goruntu`, `#/goruntu?fantom`; kalite: `?lod=high|low`;
+Bağlantılar: `#/bugun`, `#/anlat`, `#/anatomi?anlat`, `#/antrenman`, `#/asistan`, `#/aktivite`, `#/gelisim`, `#/bildirimler`, `#/verilerim`, `#/anatomi`, `#/kamera`, `#/tarama`, `#/goruntu`, `#/goruntu?fantom`; kalite: `?lod=high|low`;
 poz modeli: `?model=lite|full`.
 
 **Tarama ve ölçüm dürüstlüğü:** Kamera yalnızca dış hatları görür; iç organlar atlas referansıdır. Her ölçüm

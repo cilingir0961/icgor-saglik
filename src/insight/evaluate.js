@@ -128,6 +128,10 @@ export function evaluate(state, now = new Date()) {
     } else {
       // Kalıcılık: tarama göstergesi önceki taramada, koç göstergesi önceki koç oturumunda aynı yönde
       for (const f of flagged) {
+        // Hareketimi karşılaştır: aynı göstergenin önceki karşılaştırılabilir ölçümleri (yön fark etmeksizin)
+        f.history = (f.source === 'coach' ? coach.filter((c) => c.id === f.id && c.date !== f.date)
+          : prevEv.filter((p) => p.id === f.id && p.reliable && (!f.conditions || !p.conditions || comparable(p.conditions, f.conditions).ok)))
+          .map((p) => ({ date: p.date, value: p.value, u: p.u })).sort((a, b) => a.date.localeCompare(b.date)).slice(-4);
         f.repeats = f.source === 'coach'
           ? coach.filter((c) => c.id === f.id && c.flagged && c.sign === f.sign && c.date !== f.date).length
           : persistsIn(f, prevEv).length;

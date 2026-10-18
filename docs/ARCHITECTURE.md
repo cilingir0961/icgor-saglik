@@ -1,4 +1,4 @@
-# Mimari ve Teknik Kararlar (v0.6)
+# Mimari ve Teknik Kararlar (v0.7)
 
 ## Temel ilke: üç veri sınıfı, hiç karıştırılmaz
 
@@ -35,6 +35,8 @@ src/analysis/              Ölçüm (saf): geometry, quality (kalite kapısı), 
 src/scan/                  Tarama ekranı: scan-screen (akış), report, store (yerel, rızalı), voice, tilt, dom
 server/                    Yerel sunucu (v0.6): app.mjs statik + /api; ai/ config, limits (hız/kota/bütçe),
                            safety (acil/kriz/teşhis/ilaç), prompt, openai (Responses API), mock (demo), chat
+src/insight/               Bana Anlat (v0.7): regions, evaluate (renk kuralı), explain, recommend, summary,
+                           speak (saf); card, insight-screen (DOM). 3B işaretler anatomy-screen + viewer.projectPoint
 src/today/                 Bugün ekranı
 src/fitness/               exercises (38 egzersiz), planner (ön değerlendirme, plan, geri bildirim güvenliği; saf),
                            coach (çevrimiçi tekrar/açı/tempo; saf), coach-ui (kamera katmanı), trainer-screen
@@ -209,6 +211,22 @@ Ayrıntılı tablo ve gerçek kişi protokolü: [`VALIDATION.md`](VALIDATION.md)
 - **Hatırlatmalar yalnızca uygulama açıkken.** Web Push sunucusu yok; ekranda açıkça yazılır.
 - **Gelişimde "belirsiz" durumu:** adımda ±1,96·SE, koçta MDC95 içinde kalan fark iyileşme sayılmaz.
 - `.warnline` görüntüleme ekranına özgü mutlak konumdan arındırıldı (`#dicom-warnings`), genel uyarı sınıfı oldu.
+
+### v0.7 kararları
+
+- **Renk = istatistiksel karar, klinik eşik değil.** Sarı: tek ölçümde |fark| > 2u; turuncu: aynı gösterge, aynı yön,
+  karşılaştırılabilir koşullarda ≥ 2 güvenilir ölçüm; gri: ölçüm yok/düşük güvenilirlik. Kırmızı yok. Deneysel
+  gösterge en fazla sarı. Ayrıntı: docs/INSIGHT.md.
+- **Bölgeye yalnızca onu ölçen gösterge bağlanır;** kameranın göremediği yapılar için bölge tanımlanmadı.
+- **Kamera koçu kol açısı gövde eksenine göre** (movement.js ile tek tanım). Aynı taraf kalça noktasıyla tanım,
+  sentetik simetrik dizide 23° sahte sağ–sol fark (sağ +16,9°) üretti; bu, Bana Anlat'ta yanlış sarı işarete
+  dönüşecekti. Tolerans gevşetilmedi; tanım düzeltildi ve yeniden ölçüldü (docs/bench/coach-bench-summary.json).
+- **3B işaretler HTML katmanı** (WebGL nesnesi değil): erişilebilir düğmeler, ekran okuyucu etiketi, her çizimde
+  `projectPoint` ile yerleşim; etiketler vücut ekseninden dışa açılır. Bana Anlat açılınca vücut baştan ayağa çerçevelenir.
+- **Sesli anlatım yalnızca `localService` Türkçe sesle;** çevrim içi sesler metni dışarı gönderebileceği için seçilmez.
+- **Asistan bağlamına yeni kategori** ("Bana Anlat bulguları", varsayılan kapalı); demo yanıtlayıcı veri yoksa bunu
+  açıkça söyler, kişisel ölçüm ile genel bilgiyi ayrı etiketler.
+- `dom.h` iç içe çocuk dizilerini tamamen düzleştirir (önceden tek seviye; "[object …]" metni hatası).
 
 ## Yol haritası
 
