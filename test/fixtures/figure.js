@@ -10,10 +10,12 @@
 //   legYaw          {L: rad, R: rad} bacağın dikey eksende dışa (+) dönmesi (ayak yönelimi)
 //   headForward     baş ve boynun öne kayması (m); boyun tabanından yukarı yumuşak geçişle
 //   yaw, x          tüm figürün dönmesi ve yana kayması; dist kamera uzaklığı (m); light ışık çarpanı
+//   bodyScale       [sx, sy, sz] gövde ölçeği (siluet doğrulaması: daha geniş/derin "kişi")
 import * as THREE from '../../vendor/three/build/three.module.js';
 import { GLTFLoader } from '../../vendor/three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../../vendor/three/examples/jsm/libs/meshopt_decoder.module.js';
 import { Rig, SEGMENTS } from '../../src/three/rig.js';
+import { LEVELS, torsoSection, largestLoop } from '../../src/analysis/silhouette.js';
 
 export const JOINTS = ['shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle'];
 const SEG_OF = { shoulder: 'upperArm', elbow: 'upperArm', wrist: 'forearm', hip: 'thigh', knee: 'thigh', ankle: 'leg' };
@@ -105,6 +107,7 @@ export async function createFigure({ width = 640, height = 480, layers = ['muscl
     }
     body.position.set(p.x ?? 0, 0, 0);
     body.rotation.set(0, p.yaw ?? 0, 0);
+    body.scale.set(...(p.bodyScale ?? [1, 1, 1]));
     body.updateMatrix();
     body.matrixAutoUpdate = false;
     body.updateMatrixWorld(true);
@@ -127,5 +130,54 @@ export async function createFigure({ width = 640, height = 480, layers = ['muscl
     return { joints3d, joints2d, params: p, camera: { position: camera.position.toArray(), fov: camera.fov, aspect: camera.aspect } };
   }
 
-  return { render, renderer, canvas: renderer.domElement, manifest };
+  /**
+   * Yer gerçeği kesitler (metre): son çizilen pozda, figürün kendi ekseninde (dönme/öteleme hariç, ölçek dahil)
+   * LEVELS düzeylerinde yatay dilim → gövde kümesinin genişliği, derinliği ve dışbükey zarf çevresi.
+   */
+  function sections(p = {}) {
+    const S = new THREE.Vector3(...(p.bodyScale ?? [1, 1, 1]));
+    const mats = segmentMatrices(p);
+    const jy = (j, seg) => v3(J[j]).applyMatrix4(mats[seg]).multiply(S);
+    const sh = jy('shoulder-L', 'upperArm-L').add(jy('shoulder-R', 'upperArm-R')).multiplyScalar(0.5);
+    const hp = jy('hip-L', 'thigh-L').add(jy('hip-R', 'thigh-R')).multiplyScalar(0.5);
+    const lh = jy('hip-L', 'thigh-L'), lk = jy('knee-L', 'thigh-L');
+    const levels = {};
+    for (const [id, L] of Object.entries(p.levelDefs ?? LEVELS)) {
+      levels[id] = L.torso != null
+        ? { y: sh.y + L.torso * (hp.y - sh.y), cx: sh.x + L.torso * (hp.x - sh.x) }
+        : { y: lh.y + L.thigh * (lk.y - lh.y), cx: lh.x + L.thigh * (lk.x - lh.x) };
+    }
+    const inv = new THREE.Matrix4().makeRotationY(p.yaw ?? 0).premultiply(new THREE.Matrix4().makeTranslation(p.x ?? 0, 0, 0)).invert();
+    const pts = Object.fromEntries(Object.keys(levels).map((k) => [k, []]));
+    const segs = Object.fromEntries(Object.keys(levels).map((k) => [k, []]));
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    for (const m of meshes) {
+      const M = inv.clone().multiply(m.o.matrixWorld);
+      const pos = m.o.geometry.attributes.position, idx = m.o.geometry.index;
+      const n = idx ? idx.count : pos.count;
+      for (let i = 0; i < n; i += 3) {
+        const ia = idx ? idx.getX(i) : i, ib = idx ? idx.getX(i + 1) : i + 1, ic = idx ? idx.getX(i + 2) : i + 2;
+        a.fromBufferAttribute(pos, ia).applyMatrix4(M); b.fromBufferAttribute(pos, ib).applyMatrix4(M); c.fromBufferAttribute(pos, ic).applyMatrix4(M);
+        const lo = Math.min(a.y, b.y, c.y), hi = Math.max(a.y, b.y, c.y);
+        for (const [k, L] of Object.entries(levels)) {
+          if (L.y < lo || L.y > hi) continue;
+          const hit = [];
+          for (const [u, v] of [[a, b], [b, c], [c, a]]) {
+            if ((u.y - L.y) * (v.y - L.y) > 0 || u.y === v.y) continue;
+            // Kenar yönünden bağımsız aynı nokta (komşu üçgenlerde birebir eşleşsin)
+            const [p0, p1] = u.y < v.y || (u.y === v.y && u.x < v.x) ? [u, v] : [v, u];
+            const t = (L.y - p0.y) / (p1.y - p0.y);
+            hit.push([p0.x + t * (p1.x - p0.x), p0.z + t * (p1.z - p0.z)]);
+          }
+          pts[k].push(...hit);
+          if (hit.length === 2) segs[k].push(hit);
+        }
+      }
+    }
+    // Tek parça yüzey (deri): en büyük kapalı halka = gövde (yaslı kollar ayrı halka). Çok parçalı figür
+    // (kas + kemik): x boşluklu küme + dışbükey zarf.
+    return Object.fromEntries(Object.entries(levels).map(([k, L]) => [k, { y: L.y, ...(p.loops ? largestLoop(segs[k]) : torsoSection(pts[k], L.cx)) }]));
+  }
+
+  return { render, sections, renderer, canvas: renderer.domElement, manifest };
 }

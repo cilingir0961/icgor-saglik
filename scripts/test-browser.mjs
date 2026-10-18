@@ -11,6 +11,7 @@ import { join, resolve } from 'node:path';
 import { serve, launchChrome, sleep, ROOT } from './lib/cdp.mjs';
 import { comparePng } from './lib/png.mjs';
 import { makeFakeVideo } from './make-fake-video.mjs';
+import { makeScanVideo } from './make-scan-video.mjs';
 import { writePhantomSeries } from './make-sample-dicom.mjs';
 
 const args = process.argv.slice(2);
@@ -339,6 +340,150 @@ const cameraLimbs = (truth, model = 'lite') => async (page, r) => {
   await shot(page, r, 'uzuv-iskelet', { visual: false });
 };
 
+// ---------------- Kişisel tarama ----------------
+
+const STORE_KEY = 'icgor.kisisel.v1';
+const seed = (page, state) => page.eval(`localStorage.setItem('${STORE_KEY}', ${JSON.stringify(JSON.stringify(state))})`);
+const baseState = (extra = {}) => ({ consent: { version: 1, date: '2026-10-18', understood: true, store: true }, profile: { heightCm: 172, weightKg: 70, age: 40 }, scans: [], settings: { voice: true, mode: 'helper' }, ...extra });
+
+const scanFlow = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw&kare=6#/tarama`);
+  await page.waitFor("document.body.dataset.scanState==='home'", 30000);
+  // Onay ve profil arayüz üzerinden
+  await page.eval("document.getElementById('btn-scan-posture').click()");
+  await page.waitFor("document.body.dataset.scanState==='consent'");
+  await page.eval("document.getElementById('btn-consent-ok').click()");
+  if (await page.eval("document.getElementById('consent-err').hidden")) r.problems.push('onaysız devam edilebildi');
+  await page.eval("(()=>{for(const id of ['c-understand','c-device','c-store'])document.getElementById(id).checked=true;document.getElementById('btn-consent-ok').click()})()");
+  await page.waitFor("document.body.dataset.scanState==='profile'");
+  await page.eval("(()=>{document.getElementById('p-height').value='172';document.getElementById('p-weight').value='70';document.getElementById('btn-profile-save').click()})()");
+  const t0 = Date.now();
+  await page.waitFor("document.body.dataset.scanState==='report'", 420000);
+  r.metrics.scanSeconds = Math.round((Date.now() - t0) / 1000);
+  const scan = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).scans.at(-1)`);
+  const raw = await page.eval(`localStorage.getItem('${STORE_KEY}').length`);
+  r.metrics.storedBytes = raw;
+  if (/data:image|base64/.test(await page.eval(`localStorage.getItem('${STORE_KEY}')`))) r.problems.push('depoda görüntü verisi var');
+  for (const v of ['front', 'side', 'back']) if (!scan.captures[v]) r.problems.push(`${v} çekimi yok`);
+  // Nötr sentetik figür: önden/arkadan "ayırt edilebilir" yanlış bulgu olmamalı
+  const flagged = Object.entries(scan.captures).flatMap(([v, c]) => Object.entries(c.metrics).filter(([, m]) => m.distinguishable).map(([k]) => `${v}.${k}`));
+  r.metrics.flagged = flagged.join(',') || 'yok';
+  if (flagged.length) r.problems.push(`nötr figürde yanlış bulgu: ${flagged}`);
+  const hf = scan.captures.side?.metrics.headForwardCm;
+  r.metrics.headForwardCm = hf ? `${hf.value} ± ${hf.u}` : null;
+  if (!hf || hf.value == null) r.problems.push('baş-öne ölçülemedi');
+  const B = scan.body;
+  r.metrics.body = B ? Object.fromEntries(Object.entries(B.levels).map(([k, L]) => [k, L.circCm])) : null;
+  r.metrics.twin = B?.twin;
+  if (!B || Object.values(B.levels).some((L) => !L.circCm)) r.problems.push('siluet ölçüleri eksik');
+  if (!(B?.twin?.sx > 0.8 && B?.twin?.sx < 1.0)) r.problems.push(`ikiz genişlik çarpanı beklenmedik (kas figürü deriden dar olmalı): ${B?.twin?.sx}`);
+  const voice = await page.eval('window.__icgorScan.voice.map((v) => v.text)');
+  r.metrics.voiceLines = voice.length;
+  for (const must of ['Şimdi yan dönün', 'arkanızı kameraya', 'kollarınızı yanlara', 'Tarama tamamlandı']) if (!voice.some((t) => t.includes(must))) r.problems.push(`sesli yönerge eksik: ${must}`);
+  const rep = await page.eval("({sections: document.querySelectorAll('.report .rep-sec').length, diagrams: document.querySelectorAll('.posture-diagram').length, exp: document.querySelectorAll('.report .tag.exp').length, care: /sağlık profesyoneline/.test(document.querySelector('.report').textContent), cannot: /ıtık, skolyoz/.test(document.querySelector('.report').textContent)})");
+  r.metrics.report = rep;
+  if (rep.diagrams !== 3 || !rep.care || !rep.cannot) r.problems.push(`rapor eksik: ${JSON.stringify(rep)}`);
+  await noOverflow(page, r);
+  await shot(page, r, 'rapor', { visual: false });
+  await page.eval("window.scrollTo(0,0);document.getElementById('btn-show-twin').click()");
+  await page.waitFor("document.body.dataset.screen==='anatomy' && document.body.dataset.anatomyReady==='true' && !!document.getElementById('twin-chip')", 60000);
+  await sleep(1500);
+  const sc = await page.eval('window.__icgor.viewer.root.scale.toArray()');
+  r.metrics.twinScale = sc.map((x) => +x.toFixed(3));
+  if (Math.abs(sc[0] - B.twin.sx * sc[1]) > 0.01) r.problems.push('ikiz ölçeği uygulanmadı');
+  await shot(page, r, 'ikiz', { visual: false });
+};
+
+const scanCompare = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  const cond = { view: 'front', model: 'full', level: 'unknown', heightFrac: 0.7, width: 480, height: 640 };
+  const m = (v) => ({ tr: 'Omuz seviyesi', unit: '°', value: v, u: 1.2, grade: 'iyi', neutral: 0, experimental: false, topic: 'shoulder-level', distinguishable: Math.abs(v) > 2.4 });
+  const side = (facing, v) => ({ conditions: { ...cond, view: 'side', facing }, frames: 6, metrics: { headForwardCm: { tr: 'Başın öne konumu (kulak–omuz)', unit: 'cm', value: v, u: 1, neutral: null, grade: 'iyi', topic: 'head-forward' } } });
+  const d = (n) => new Date(Date.UTC(2026, 9, 18) - n * 86400000).toISOString();
+  await seed(page, baseState({ scans: [
+    { id: 'a', date: d(34), model: 'full', profile: { heightCm: 172 }, captures: { front: { conditions: cond, frames: 6, metrics: { shoulderLevel: m(5) } }, side: side('right', 6) }, movements: {} },
+    { id: 'b', date: d(0), model: 'full', profile: { heightCm: 172 }, captures: { front: { conditions: cond, frames: 6, metrics: { shoulderLevel: m(0.5) } }, side: side('left', 4) }, movements: {} },
+  ] }));
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  await page.waitFor("document.body.dataset.scanState==='home'", 30000);
+  await page.eval("document.getElementById('btn-scan-history').click()");
+  await page.waitFor("document.body.dataset.scanState==='history'");
+  await page.eval("document.querySelector('.history .linklike').click()");
+  await page.waitFor("document.body.dataset.scanState==='report'");
+  const txt = await page.eval("document.getElementById('rep-compare').textContent");
+  r.metrics.compare = txt.slice(0, 300);
+  if (!/30 gün/.test(txt) || !/Olası değişim: -4,5°/.test(txt)) r.problems.push('30 günlük olası değişim gösterilmedi');
+  if (!/karşılaştırılamaz — farklı bakış yönü/.test(txt)) r.problems.push('farklı bakış yönü engellenmedi (sahte ilerleme riski)');
+  if (!/90 gün: bu aralıkta/.test(txt)) r.problems.push('90 gün boş penceresi belirtilmedi');
+  await shot(page, r, 'karsilastirma', { visual: false });
+};
+
+const scanSafety = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  await seed(page, baseState());
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  await page.waitFor("document.body.dataset.scanState==='home'", 30000);
+  await page.eval("document.getElementById('btn-scan-moves').click()");
+  await page.waitFor("document.body.dataset.scanState==='moves'");
+  await page.eval("document.querySelector('[data-test=\"tek-ayak\"]').click()");
+  await page.waitFor("document.body.dataset.scanState==='safety'");
+  await page.eval("document.getElementById('btn-move-start').click()");
+  if (!/tüm soruları/.test(await page.eval("document.getElementById('safety-err').textContent"))) r.problems.push('yanıtsız sorularla başlatılabildi');
+  await page.eval("(()=>{document.querySelector('input[name=sq0][value=evet]').click();document.querySelector('input[name=sq1][value=hayir]').click();document.querySelector('input[name=sq2][value=hayir]').click();document.getElementById('btn-move-start').click()})()");
+  const st = await page.eval("({msg: document.getElementById('safety-err').textContent, disabled: document.getElementById('btn-move-start').disabled, blocked: window.__icgorScan.blocked, state: document.body.dataset.scanState})");
+  r.metrics.safety = st;
+  if (!st.disabled || st.blocked !== 'tek-ayak' || !/önermiyoruz/.test(st.msg) || st.state !== 'safety') r.problems.push(`denge testi engellenmedi: ${JSON.stringify(st)}`);
+  await shot(page, r, 'guvenlik', { visual: false });
+};
+
+const scanData = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  await page.eval(`localStorage.removeItem('${STORE_KEY}')`);
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  await page.waitFor("document.body.dataset.scanState==='home'", 30000);
+  await page.eval("document.getElementById('btn-scan-posture').click()");
+  await page.waitFor("document.body.dataset.scanState==='consent'");
+  // Saklama izni VERMEDEN onay
+  await page.eval("(()=>{for(const id of ['c-understand','c-device'])document.getElementById(id).checked=true;document.getElementById('btn-consent-ok').click()})()");
+  await page.waitFor("document.body.dataset.scanState==='profile'");
+  await page.eval("(()=>{document.getElementById('p-height').value='180';document.getElementById('btn-profile-save').click()})()");
+  await sleep(300);
+  if (await page.eval(`localStorage.getItem('${STORE_KEY}')`) !== null) r.problems.push('saklama izni yokken veri yazıldı');
+  // İzinli durumda tümünü sil
+  await seed(page, baseState({ scans: [{ id: 'x', date: new Date().toISOString(), captures: {}, movements: {} }] }));
+  await page.goto(`${base}/index.html?nosw&yeniden=1#/tarama`); // farklı adres: sayfa gerçekten yeniden yüklensin
+  await page.waitFor("document.body.dataset.scanState==='home'", 30000);
+  await page.eval("window.confirm = () => true; document.getElementById('btn-scan-data').click()");
+  await page.waitFor("document.body.dataset.scanState==='data'");
+  const txt = await page.eval("document.getElementById('scan-data').textContent");
+  if (!/1 tarama/.test(txt)) r.problems.push('veri özeti yanlış');
+  await page.eval("document.getElementById('btn-data-delete').click()");
+  await sleep(300);
+  if (await page.eval(`localStorage.getItem('${STORE_KEY}')`) !== null) r.problems.push('tümünü sil sonrası veri kaldı');
+  if (await page.eval('document.body.dataset.scanState') !== 'home') r.problems.push('silme sonrası ana sayfaya dönülmedi');
+};
+
+const scanMovement = async (page, r) => {
+  await page.goto(`${base}/index.html?nosw#/tarama`);
+  await seed(page, baseState());
+  await page.goto(`${base}/index.html?nosw&sure=3#/tarama`);
+  await page.waitFor("document.body.dataset.scanState==='home'", 30000);
+  await page.eval("document.getElementById('btn-scan-moves').click()");
+  await page.waitFor("document.body.dataset.scanState==='moves'");
+  await page.eval("document.querySelector('[data-test=\"kol-kaldirma\"]').click()");
+  await page.waitFor("document.body.dataset.scanState==='safety'");
+  await page.eval("document.getElementById('btn-move-start').click()");
+  await page.waitFor("document.body.dataset.scanState==='after'", 240000);
+  await page.eval("document.getElementById('btn-discomfort-yes').click()");
+  await page.waitFor("document.body.dataset.scanState==='report'");
+  const mv = await page.eval(`JSON.parse(localStorage.getItem('${STORE_KEY}')).scans.at(-1).movements['kol-kaldirma']`);
+  r.metrics.movement = { reps: mv.reps, L: mv.metrics.abductionL.value, R: mv.metrics.abductionR.value, samples: mv.samples };
+  if (!(mv.reps.L >= 1 && mv.reps.R >= 1)) r.problems.push('tekrar algılanmadı');
+  if (!(mv.metrics.abductionL.value > mv.metrics.abductionR.value)) r.problems.push('sol kol (daha yüksek kaldırıldı) sağdan büyük ölçülmedi');
+  if (!/rahatsızlık bildirdiniz/.test(await page.eval("document.querySelector('.report').textContent"))) r.problems.push('rahatsızlık uyarısı gösterilmedi');
+  await shot(page, r, 'hareket-rapor', { visual: false });
+};
+
 // ---------------- Koşucu ----------------
 
 async function main() {
@@ -365,6 +510,9 @@ async function main() {
       await scenario('kamera-izin-reddi', dev, cameraDenied, browser);
     }
     await scenario('hakkinda-lisans', 'iphone', aboutDialog, browser);
+    await scenario('tarama-karsilastirma', 'iphone', scanCompare, browser);
+    await scenario('tarama-guvenlik', 'iphone', scanSafety, browser);
+    await scenario('tarama-veri', 'android', scanData, browser);
     await scenario('goruntu-dicom-yukleme', 'android', (p, r, d) => imagingUpload(p, r, d, dicomFiles), browser);
     await scenario('eski-sayfa', 'desktop', legacy, browser);
   } finally {
@@ -389,8 +537,17 @@ async function main() {
     await scenario('kamera-uzuv-full', 'iphone', cameraLimbs(armsTruth, 'full'), armsBrowser);
   } finally {
     armsBrowser.close();
-    server.close();
   }
+
+  // Kişisel tarama: dört adımlı sahte video (önden, yandan, arkadan, kollar açık) ve yavaş kol kaldırma
+  for (const [kind, sc, name] of [['tarama', scanFlow, 'tarama-akisi'], ['kol', scanMovement, 'tarama-hareket']]) {
+    if (ONLY && !ONLY.split(',').some((o) => `iphone/${name}`.includes(o))) continue;
+    const v = join(CACHE, `scan-${kind}.y4m`);
+    if (!existsSync(v)) await makeScanVideo(kind, v);
+    const b = await launchChrome({ fakeVideo: v });
+    try { await scenario(name, 'iphone', sc, b); } finally { b.close(); }
+  }
+  server.close();
 
   const passed = results.filter((r) => r.ok).length;
   await writeFile(join(OUT, 'rapor.json'), JSON.stringify({ date: new Date().toISOString(), passed, total: results.length, results }, null, 2));

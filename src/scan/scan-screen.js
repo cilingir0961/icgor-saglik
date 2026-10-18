@@ -10,6 +10,8 @@ import { assessFrame, stability, lumaStats, VIEWS } from '../analysis/quality.js
 import { postureMetrics } from '../analysis/posture.js';
 import { MOVEMENT_TESTS } from '../analysis/movement.js';
 import { measureSegments, twinScales, bmi } from '../analysis/proportions.js';
+import { bodyMeasures } from '../analysis/silhouette.js';
+import { ATLAS_HEIGHT_CM } from '../analysis/atlas-silhouette.js';
 import { median } from '../analysis/geometry.js';
 import { TOPICS } from '../anatomy/posture-info.js';
 import { createStore } from './store.js';
@@ -25,8 +27,10 @@ const MODEL = params.get('model') === 'lite' ? 'lite' : 'full';
 const DURATION_X = Math.min(5, Math.max(1, Number(params.get('sure') ?? 1))); // test: yavaş ortamda süre çarpanı
 const POSTURE_STEPS = [
   { view: 'front', title: 'Önden', say: 'Yüzünüz kameraya dönük, kollarınız yanda, rahat durun.' },
-  { view: 'side', title: 'Yandan', say: 'Şimdi yan dönün. Omzunuz kameraya baksın.' },
+  { view: 'side', title: 'Yandan', say: 'Şimdi yan dönün. Omzunuz kameraya baksın.', masks: 3 },
   { view: 'back', title: 'Arkadan', say: 'Şimdi arkanızı kameraya dönün.' },
+  // Siluet ölçüsü için kollar gövdeye değmemeli (deneysel vücut ölçüleri ve dijital ikiz)
+  { view: 'front', key: 'silhouette', title: 'Önden — kollar açık', say: 'Şimdi tekrar kameraya dönün ve kollarınızı yanlara hafifçe açın.', frames: 12, masks: 3 },
 ];
 const LINKS = [[11, 12], [11, 23], [12, 24], [23, 24], [11, 13], [13, 15], [12, 14], [14, 16], [23, 25], [25, 27], [24, 26], [26, 28], [7, 11], [8, 12]];
 const CHECK_TR = { person: 'Kişi', view: 'Görünüş', visible: 'Tüm vücut', framing: 'Kadraj', distance: 'Mesafe', center: 'Ortalama', light: 'Işık', level: 'Telefon düzlüğü', stable: 'Hareketsiz' };
@@ -161,7 +165,7 @@ export async function createScanScreen() {
     if (!tracker) {
       hud({ title: 'Vücut takibi hazırlanıyor…', text: `Model: ${MODEL === 'full' ? 'tam (doğruluk öncelikli)' : 'hafif'}` });
       const mod = await import('../camera/pose-tracker.js');
-      tracker = await mod.PoseTracker.create({ model: MODEL });
+      tracker = await mod.PoseTracker.create({ model: MODEL, masks: true });
     }
   }
 
@@ -173,8 +177,8 @@ export async function createScanScreen() {
   }
 
   /** Bir kare: noktalar, kalite, ışık. */
-  function sample(expectedView, now) {
-    const det = tracker.detect(video, now);
+  function sample(expectedView, now, { mask = false } = {}) {
+    const det = tracker.detect(video, now, { mask });
     const vw = video.videoWidth, vh = video.videoHeight;
     let light = null;
     if (!sample.n || sample.n++ % 10 === 0) {
@@ -185,7 +189,7 @@ export async function createScanScreen() {
     light = sample.light;
     const t = tilt.current();
     const q = assessFrame(det?.all ?? null, { expectedView, width: vw, height: vh, light, tilt: t });
-    return { lm: det?.all ?? null, q, vw, vh, tilt: t };
+    return { lm: det?.all ?? null, q, vw, vh, tilt: t, mask: det?.mask ?? null };
   }
 
   function drawOverlay(lm, ok) {
@@ -242,7 +246,8 @@ export async function createScanScreen() {
    */
   function captureView(step, index, total) {
     return new Promise((resolve) => {
-      const frames = [], recent = [], heights = [], tilts = [];
+      const frames = [], recent = [], heights = [], tilts = [], masks = [];
+      const need = step.frames ? Math.min(step.frames, FRAMES_PER_VIEW) : FRAMES_PER_VIEW;
       let lastMsg = '', msgSince = 0, lastDetect = 0, started = false;
       voice.say(step.say, { force: true, interrupt: true });
       const loop = (now) => {
@@ -250,7 +255,8 @@ export async function createScanScreen() {
         run.raf = requestAnimationFrame(loop);
         if (video.readyState < 2 || now - lastDetect < 66) return;
         lastDetect = now;
-        const { lm, q, vw, vh, tilt: t } = sample(step.view, now);
+        const wantMask = Boolean(step.masks) && frames.length >= need - step.masks;
+        const { lm, q, vw, vh, tilt: t, mask } = sample(step.view, now, { mask: wantMask });
         if (lm) { recent.push(lm); if (recent.length > 8) recent.shift(); }
         const st = lm ? stability(recent) : { ok: false };
         const checks = [...q.checks, { id: 'stable', ok: q.ok ? st.ok : null, msg: 'Kıpırdamadan durun.' }];
@@ -263,18 +269,19 @@ export async function createScanScreen() {
         if (good) {
           if (!started) { started = true; voice.say('Harika. Kıpırdamadan durun.'); }
           frames.push(lm); heights.push(q.heightFrac); if (t) tilts.push(t);
+          if (mask) masks.push({ mask, lm });
         }
         hud({
           title: `${index + 1}/${total} · ${step.title}`,
           text: good ? 'Ölçülüyor — kıpırdamadan durun.' : msg || step.say,
-          checks, progress: frames.length / FRAMES_PER_VIEW,
+          checks, progress: frames.length / need,
         });
-        if (frames.length >= FRAMES_PER_VIEW) {
+        if (frames.length >= need) {
           cancelAnimationFrame(run.raf);
           voice.say('Tamam.', { force: true });
           const view = step.view;
           resolve({
-            frames,
+            frames, masks,
             conditions: {
               view, model: MODEL, width: vw, height: vh, heightFrac: +median(heights).toFixed(3),
               level: tilts.length > frames.length * 0.8 ? 'known' : 'unknown',
@@ -304,11 +311,14 @@ export async function createScanScreen() {
     try { await openCamera(); } catch (e) { return cameraError(e); }
     const scan = ensureScan();
     const self = store.state.settings.mode === 'self';
+    const maskSets = {};
     for (const [i, step] of POSTURE_STEPS.entries()) {
       if (self) await countdown(10, step.say);
       if (run.cancelled) break;
       const res = await captureView(step, i, POSTURE_STEPS.length);
       if (!res) break;
+      if (res.masks.length) maskSets[step.key ?? step.view] = res.masks;
+      if (step.key === 'silhouette') continue; // yalnızca siluet; duruş göstergeleri kollar yandayken ölçülür
       const metrics = postureMetrics(res.frames, { ...res.conditions, userHeightCm: store.state.profile.heightCm });
       const skeleton = res.frames[0].map((_, k) => [0, 1, 2, 3].map((c) => median(res.frames.map((f) => f[k][c]))));
       scan.captures[step.view] = { conditions: res.conditions, metrics, frames: res.frames.length, skeleton };
@@ -319,6 +329,9 @@ export async function createScanScreen() {
     }
     const cancelled = run.cancelled;
     closeCamera();
+    if (maskSets.silhouette && maskSets.side) {
+      scan.body = bodyMeasures(maskSets.silhouette, maskSets.side, store.state.profile.heightCm);
+    }
     if (cancelled && !Object.keys(scan.captures).length) { current = null; return home(); }
     finish(scan);
   }
@@ -457,23 +470,33 @@ export async function createScanScreen() {
   }
 
   // ---------------- Rapor, geçmiş, veri ----------------
+  /** Dijital ikiz ölçekleri: boy; genişlik/derinlik siluetten (yoksa omuz genişliği oranından). */
+  function twinOf(scan) {
+    if (!scan?.profile?.heightCm) return null;
+    const overall = +(scan.profile.heightCm / ATLAS_HEIGHT_CM).toFixed(3);
+    let sx = scan.body?.twin?.sx ?? null, sz = scan.body?.twin?.sz ?? null, source = sx ? 'siluet' : null;
+    const atlasJ = window.__icgorManifest?.joints;
+    if (!sx && scan.proportions?.segments && atlasJ) {
+      sx = twinScales(scan.proportions.segments, ATLAS_SEG(atlasJ), scan.profile.heightCm, ATLAS_HEIGHT_CM).shoulderWidth;
+      source = 'omuz genişliği';
+    }
+    return { overall, sx: sx ?? 1, sz: sz ?? 1, source };
+  }
+
   function show3D(topic) {
     const T = TOPICS[topic];
     const scan = current ?? store.state.scans.at(-1);
-    const seg = scan?.proportions?.segments;
-    let twin = null;
-    if (seg && scan.profile?.heightCm) {
-      const atlasJ = window.__icgorManifest?.joints;
-      if (atlasJ) twin = twinScales(seg, ATLAS_SEG(atlasJ), scan.profile.heightCm, window.__icgorManifest.bodyHeight * 100);
-    }
-    try { sessionStorage.setItem('icgor.highlight', JSON.stringify({ topic, title: T.tr, ids: T.highlight, anatomy: T.anatomy, twin })); } catch { /* özel mod */ }
+    const twin = twinOf(scan);
+    const data = T ? { topic, title: T.tr, ids: T.highlight, anatomy: T.anatomy, twin }
+      : { topic: 'twin', title: 'Dijital ikiz', ids: [], anatomy: 'Dış oranlar taramanızdan tahmin edildi.', twin };
+    try { sessionStorage.setItem('icgor.highlight', JSON.stringify(data)); } catch { /* özel mod */ }
     location.hash = '#/anatomi?ikiz';
   }
 
   function report(scan) {
     const node = h('div', { class: 'scan-report-page' },
       renderReport(scan, {
-        history: store.state.scans, onShow3D: show3D,
+        history: store.state.scans, onShow3D: show3D, twin: twinOf(scan),
         onExport: () => download(`icgor-tarama-${scan.date.slice(0, 10)}.json`, JSON.stringify(scan, null, 2)),
       }),
       h('div', { class: 'actions' },

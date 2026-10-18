@@ -1,5 +1,5 @@
 // Tarama testleri için sahte kamera videoları (Y4M, dikey). Sentetik figür; gerçek kişi değildir.
-//   tarama: önden → yandan → arkadan, her biri SEG saniye (durağan)
+//   tarama: önden → yandan (baş 3 cm önde) → arkadan → önden kollar açık, her biri SEG saniye (durağan)
 //   kol: yavaş kol kaldırma, tekrar başına 12 s
 // Kullanım: node scripts/make-scan-video.mjs <tarama|kol> <çıktı.y4m>
 import { writeFile } from 'node:fs/promises';
@@ -15,7 +15,8 @@ export async function makeScanVideo(kind, out, { seg = 30 } = {}) {
   const { cdp, close } = await launchChrome();
   const plan = kind === 'kol'
     ? Array.from({ length: 3 * 12 * FPS }, (_, i) => { const k = Math.sin(((i / FPS) % 12) / 12 * Math.PI); return { ...CAM, yaw: 0, pose: { 'shoulder-L': { plane: 2.4 * k }, 'shoulder-R': { plane: -2.0 * k } } }; })
-    : [{ ...CAM, yaw: 0 }, { ...CAM, yaw: Math.PI / 2, headForward: 0.03 }, { ...CAM, yaw: Math.PI }].flatMap((p) => Array(seg * FPS).fill(p));
+    : [{ ...CAM, yaw: 0 }, { ...CAM, yaw: Math.PI / 2, headForward: 0.03 }, { ...CAM, yaw: Math.PI },
+      { ...CAM, yaw: 0, pose: { 'shoulder-L': { plane: 0.55 }, 'shoulder-R': { plane: -0.55 } } }].flatMap((p) => Array(seg * FPS).fill(p));
   try {
     const page = await cdp.page({ width: W, height: H });
     await page.goto(`http://127.0.0.1:${server.address().port}/test/fixtures/bench.html?nomp=1&w=${W}&h=${H}`);

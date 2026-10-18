@@ -1,0 +1,234 @@
+{
+ "date": "2026-10-18T08:28:43.952Z",
+ "note": "Sentetik figür (kas+iskelet, kollar 31° açık), full model + bölütleme maskesi, 480x640, kamera 2,6 m. Gerçek kişide giysi/saç ölçüye eklenir. Uyluk düzeyi bacaklar birleştiği için çıkarıldı.",
+ "summary": {
+  "segmentationWidth": {
+   "n": 15,
+   "bias": -0.1,
+   "rms": 0.3,
+   "max": 0.4
+  },
+  "segmentationDepth": {
+   "n": 15,
+   "bias": 0.8,
+   "rms": 1.5,
+   "max": 3
+  },
+  "projectionWidth": {
+   "n": 15,
+   "bias": 0.9,
+   "rms": 0.9,
+   "max": 1.4
+  },
+  "projectionDepth": {
+   "n": 15,
+   "bias": -0.3,
+   "rms": 1.4,
+   "max": 2.6
+  },
+  "circumferenceCm": {
+   "n": 15,
+   "bias": 0.1,
+   "rms": 2.5,
+   "max": 4.3
+  },
+  "circumferencePct": {
+   "n": 15,
+   "bias": 0.3,
+   "rms": 3,
+   "max": 4.8
+  },
+  "ratio": [
+   {
+    "id": "geniş+%10",
+    "widthRatio": 1.099,
+    "expectedW": 1.1,
+    "depthRatio": 0.971,
+    "expectedD": 1
+   },
+   {
+    "id": "dar−%8",
+    "widthRatio": 0.942,
+    "expectedW": 0.92,
+    "depthRatio": 1.004,
+    "expectedD": 1
+   },
+   {
+    "id": "derin+%10",
+    "widthRatio": 1,
+    "expectedW": 1,
+    "depthRatio": 1.096,
+    "expectedD": 1.1
+   },
+   {
+    "id": "kısa−%6",
+    "widthRatio": 1,
+    "expectedW": 1,
+    "depthRatio": 1.017,
+    "expectedD": 1
+   }
+  ]
+ },
+ "rows": {
+  "nötr": {
+   "chest": {
+    "widthMask": 28.8,
+    "widthRender": 29.2,
+    "widthTrue": 28.3,
+    "depthMask": 24,
+    "depthRender": 24,
+    "depthTrue": 23.2,
+    "circEllipse": 83.1,
+    "circTrue": 86
+   },
+   "waist": {
+    "widthMask": 24,
+    "widthRender": 24.4,
+    "widthTrue": 23.5,
+    "depthMask": 21.4,
+    "depthRender": 21,
+    "depthTrue": 20.4,
+    "circEllipse": 71.4,
+    "circTrue": 70.6
+   },
+   "hip": {
+    "widthMask": 32.3,
+    "widthRender": 32.3,
+    "widthTrue": 31.3,
+    "depthMask": 19.1,
+    "depthRender": 17.2,
+    "depthTrue": 19.1,
+    "circEllipse": 82.2,
+    "circTrue": 79.8
+   }
+  },
+  "geniş+%10": {
+   "chest": {
+    "widthMask": 31.5,
+    "widthRender": 31.5,
+    "widthTrue": 31.2,
+    "depthMask": 23.3,
+    "depthRender": 23.7,
+    "depthTrue": 23.2,
+    "circEllipse": 86.6,
+    "circTrue": 90.9
+   },
+   "waist": {
+    "widthMask": 26.4,
+    "widthRender": 26.8,
+    "widthTrue": 25.9,
+    "depthMask": 20.7,
+    "depthRender": 21.1,
+    "depthTrue": 20.4,
+    "circEllipse": 74.2,
+    "circTrue": 74.4
+   },
+   "hip": {
+    "widthMask": 35.5,
+    "widthRender": 35.5,
+    "widthTrue": 34.4,
+    "depthMask": 19.6,
+    "depthRender": 16.9,
+    "depthTrue": 19.1,
+    "circEllipse": 88.2,
+    "circTrue": 85.3
+   }
+  },
+  "dar−%8": {
+   "chest": {
+    "widthMask": 27.4,
+    "widthRender": 27,
+    "widthTrue": 26.1,
+    "depthMask": 24.1,
+    "depthRender": 24.1,
+    "depthTrue": 23.2,
+    "circEllipse": 81,
+    "circTrue": 82.2
+   },
+   "waist": {
+    "widthMask": 22.6,
+    "widthRender": 22.6,
+    "widthTrue": 21.6,
+    "depthMask": 20.7,
+    "depthRender": 21.1,
+    "depthTrue": 20.4,
+    "circEllipse": 68.1,
+    "circTrue": 67.5
+   },
+   "hip": {
+    "widthMask": 30.2,
+    "widthRender": 30.2,
+    "widthTrue": 28.8,
+    "depthMask": 19.6,
+    "depthRender": 17,
+    "depthTrue": 19.1,
+    "circEllipse": 79.1,
+    "circTrue": 75.5
+   }
+  },
+  "derin+%10": {
+   "chest": {
+    "widthMask": 28.8,
+    "widthRender": 28.8,
+    "widthTrue": 28.3,
+    "depthMask": 26.3,
+    "depthRender": 25.9,
+    "depthTrue": 25.5,
+    "circEllipse": 86.5,
+    "circTrue": 89.9
+   },
+   "waist": {
+    "widthMask": 24.1,
+    "widthRender": 24.5,
+    "widthTrue": 23.5,
+    "depthMask": 22.2,
+    "depthRender": 22.9,
+    "depthTrue": 22.4,
+    "circEllipse": 72.6,
+    "circTrue": 73.8
+   },
+   "hip": {
+    "widthMask": 32.3,
+    "widthRender": 32.3,
+    "widthTrue": 31.3,
+    "depthMask": 21.4,
+    "depthRender": 18.4,
+    "depthTrue": 21,
+    "circEllipse": 85.3,
+    "circTrue": 82.4
+   }
+  },
+  "kısa−%6": {
+   "chest": {
+    "widthMask": 28.8,
+    "widthRender": 28.8,
+    "widthTrue": 28.3,
+    "depthMask": 24.4,
+    "depthRender": 24,
+    "depthTrue": 23.2,
+    "circEllipse": 83.8,
+    "circTrue": 86
+   },
+   "waist": {
+    "widthMask": 24.9,
+    "widthRender": 24.5,
+    "widthTrue": 23.5,
+    "depthMask": 21,
+    "depthRender": 21.4,
+    "depthTrue": 20.4,
+    "circEllipse": 72.2,
+    "circTrue": 70.6
+   },
+   "hip": {
+    "widthMask": 32,
+    "widthRender": 32.4,
+    "widthTrue": 31.3,
+    "depthMask": 19.8,
+    "depthRender": 17.2,
+    "depthTrue": 19.1,
+    "circEllipse": 82.6,
+    "circTrue": 79.8
+   }
+  }
+ }
+}

@@ -12,7 +12,8 @@ export const MODELS = {
 };
 
 export class PoseTracker {
-  static async create({ model = 'lite' } = {}) {
+  /** @param {{model?:'lite'|'full', masks?:boolean}} o masks: kişi bölütleme maskesi (siluet ölçüsü, yalnızca tarama) */
+  static async create({ model = 'lite', masks = false } = {}) {
     const fileset = await FilesetResolver.forVisionTasks(WASM);
     let lastError;
     for (const delegate of ['GPU', 'CPU']) {
@@ -24,6 +25,7 @@ export class PoseTracker {
           minPoseDetectionConfidence: 0.5,
           minPosePresenceConfidence: 0.5,
           minTrackingConfidence: 0.5,
+          outputSegmentationMasks: masks,
         });
         return new PoseTracker(landmarker, delegate, model);
       } catch (e) {
@@ -44,11 +46,15 @@ export class PoseTracker {
    * @returns {null | {points: Record<string, number[]>, visibility: Record<string, number>, all: number[][]}}
    *   normalize (0–1) video koordinatı; all: 33 noktanın tümü [x, y, z, görünürlük]
    */
-  detect(video, nowMs) {
+  detect(video, nowMs, { mask = false } = {}) {
     const ts = Math.max(nowMs, this.lastTs + 1); // zaman damgası kesin artan olmalı
     this.lastTs = ts;
     const res = this.landmarker.detectForVideo(video, ts);
     const lm = res.landmarks?.[0];
+    // Maske yalnızca istenirse kopyalanır (büyük dizi); her durumda serbest bırakılır
+    const m = res.segmentationMasks?.[0];
+    const maskOut = mask && m && lm ? { data: m.getAsFloat32Array().slice(), width: m.width, height: m.height } : null;
+    res.segmentationMasks?.forEach((x) => x.close());
     if (!lm) return null;
     const points = {}, visibility = {};
     for (const k of Object.keys(POSE)) {
@@ -56,7 +62,7 @@ export class PoseTracker {
       points[k] = [p.x, p.y];
       visibility[k] = p.visibility ?? 0;
     }
-    return { points, visibility, all: lm.map((p) => [p.x, p.y, p.z, p.visibility ?? 0]) };
+    return { points, visibility, all: lm.map((p) => [p.x, p.y, p.z, p.visibility ?? 0]), mask: maskOut };
   }
 
   close() { this.landmarker.close(); }

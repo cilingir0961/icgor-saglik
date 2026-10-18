@@ -378,6 +378,7 @@ export async function createAnatomyScreen() {
     try { data = JSON.parse(sessionStorage.getItem('icgor.highlight') ?? 'null'); } catch { /* yok */ }
     if (!data) return;
     clearTwin();
+    $('anatomy-hint').hidden = true;
     viewer.setHighlight(data.ids);
     if (data.twin) viewer.setTwin(data.twin);
     viewer.resetView();
@@ -386,9 +387,11 @@ export async function createAnatomyScreen() {
     chip.className = 'twin-chip';
     chip.id = 'twin-chip';
     const t = document.createElement('strong');
-    t.textContent = `${data.title}: ilgili yapılar (genel anatomi)`;
+    t.textContent = data.ids?.length ? `${data.title}: ilgili yapılar (genel anatomi)` : 'Dijital ikiz (deneysel)';
     const p = document.createElement('p');
-    p.textContent = `${data.anatomy} ${data.twin ? 'Model boyunuza ve omuz genişliği oranınıza göre ölçeklendi (tahmini); iç yapılar atlas referansıdır, size ait değildir.' : ''}`;
+    const tw = data.twin;
+    const twinText = tw ? `Dış oranlar taramanızdan: boy ×${tw.overall.toLocaleString('tr-TR')}, genişlik ×${tw.sx.toLocaleString('tr-TR')}, derinlik ×${tw.sz.toLocaleString('tr-TR')} (kaynak: ${tw.source ?? 'boy'}). İç yapılar atlas referansıdır; size ait değildir.` : '';
+    p.textContent = `${data.ids?.length ? data.anatomy : ''} ${twinText}`.trim();
     const b = document.createElement('button');
     b.className = 'btn small';
     b.textContent = 'Vurguyu kaldır';

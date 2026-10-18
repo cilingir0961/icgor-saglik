@@ -72,7 +72,7 @@ function moveMetricRow(id, m) {
  * @param {object} scan tarama kaydı
  * @param {{history?:object[], onShow3D?:(topic:string)=>void, onExport?:()=>void}} ctx
  */
-export function renderReport(scan, { history = [], onShow3D, onExport } = {}) {
+export function renderReport(scan, { history = [], onShow3D, onExport, twin } = {}) {
   const date = new Date(scan.date);
   const levelKnown = Object.values(scan.captures ?? {}).some((c) => c.conditions.level === 'known');
   const discomfort = Object.values(scan.movements ?? {}).some((m) => m.discomfort);
@@ -117,6 +117,20 @@ export function renderReport(scan, { history = [], onShow3D, onExport } = {}) {
         h('div', { class: 'metric-head' }, h('span', { class: 'name' }, sg.tr), h('span', { class: 'tag exp' }, 'Deneysel')),
         h('div', { class: 'metric-value' }, sg.cm == null ? 'ölçülemedi' : `${fmt(sg.cm)} cm ± ${fmt(sg.u)}`)))),
       P.bmi ? h('p', { class: 'metric-text' }, `Beden kitle indeksi (girdiğiniz boy ve kiloya göre): ${fmt(P.bmi)} kg/m². Yalnızca boy–kilo oranıdır; vücut yağını veya sağlık durumunu ölçmez.`) : null));
+  }
+
+  // Siluet ölçüleri ve dijital ikiz
+  if (scan.body || twin) {
+    const B = scan.body;
+    root.append(h('section', { class: 'rep-sec', id: 'rep-body' },
+      h('h3', {}, 'Vücut ölçüleri ve dijital ikiz (deneysel)'),
+      h('p', { class: 'sub' }, 'Kişi bölütleme maskesinden, girdiğiniz boya göre: önden genişlik, yandan derinlik, elips modeliyle yaklaşık çevre. Giysi ve saç ölçüye eklenir; mezura ölçümü değildir. İç yağ dağılımı veya organlar hakkında bilgi vermez.'),
+      B ? h('div', { class: 'metrics two' }, Object.entries(B.levels).map(([k, L]) => h('div', { class: 'metric', dataset: { level: k } },
+        h('div', { class: 'metric-head' }, h('span', { class: 'name' }, L.tr), h('span', { class: 'tag exp' }, 'Deneysel')),
+        L.circCm ? h('div', { class: 'metric-value' }, `≈ ${fmt(L.circCm)} cm ± ${fmt(L.uCirc)}`) : h('div', { class: 'metric-value' }, 'ölçülemedi'),
+        h('p', { class: 'metric-text' }, L.circCm ? `genişlik ${fmt(L.widthCm)} ± ${fmt(L.uWidth)} cm · derinlik ${fmt(L.depthCm)} ± ${fmt(L.uDepth)} cm` : `Neden: ${L.why ?? 'bilinmiyor'}`)))) : h('p', { class: 'sub' }, 'Siluet adımı tamamlanmadı; ikiz yalnızca boy ve omuz genişliğinden ölçeklenir.'),
+      twin ? h('p', { class: 'metric-text' }, `İkiz ölçekleri (atlas vücuduna göre): boy ×${fmt(twin.overall, 3)}, genişlik ×${fmt(twin.sx, 3)}, derinlik ×${fmt(twin.sz, 3)} — kaynak: ${twin.source ?? 'boy'}. Atlas tek bir referans vücuttur, norm değildir.`) : null,
+      onShow3D ? h('button', { class: 'btn small', id: 'btn-show-twin', onclick: () => onShow3D('twin') }, 'Dijital ikizi 3B göster') : null));
   }
 
   // Gelişim karşılaştırması

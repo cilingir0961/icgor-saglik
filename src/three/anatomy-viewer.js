@@ -202,14 +202,14 @@ export class AnatomyViewer extends EventTarget {
   }
 
   /**
-   * Dijital ikiz oranları (görsel yaklaşım): genel ölçek (boy) ve omuz genişliği oranı. İç yapılar atlas
-   * referansıdır; bu ölçekleme kişinin organlarını göstermez.
-   * @param {{overall:number, shoulderWidth:number}|null} t
+   * Dijital ikiz oranları (görsel yaklaşım): genel ölçek (boy), genişlik (sx) ve derinlik (sz) çarpanları
+   * taramadaki siluetten. İç yapılar atlas referansıdır; bu ölçekleme kişinin organlarını göstermez.
+   * @param {{overall:number, sx?:number, sz?:number}|null} t
    */
   setTwin(t) {
     this.twin = t ?? null;
-    const k = t?.overall ?? 1, w = t?.shoulderWidth ?? 1;
-    this.root.scale.set(k * w, k, k);
+    const k = t?.overall ?? 1;
+    this.root.scale.set(k * (t?.sx ?? 1), k, k * (t?.sz ?? 1));
     this.root.updateMatrixWorld(true);
     this.requestRender();
   }
