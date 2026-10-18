@@ -1,0 +1,13 @@
+{
+  "name": "icgor-saglik",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kamera tabanlı şematik 3B anatomi görüntüleme prototipi (eğitim amaçlı, teşhis aracı değildir)",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "serve": "python3 -m http.server 8000",
+    "smoke": "node scripts/browser-smoke.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
