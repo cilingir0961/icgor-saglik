@@ -1,7 +1,7 @@
 {
-  "name": "İçGör — 3B Anatomi (eğitim)",
+  "name": "İçGör — Sağlık, hareket ve anatomi (eğitim)",
   "short_name": "İçGör",
-  "description": "Eğitim amaçlı 3B/4D anatomi atlası ve kamera AR prototipi. Tıbbi cihaz değildir; teşhis koymaz.",
+  "description": "Eğitim amaçlı kişisel hareket asistanı, 3B anatomi atlası ve kamera prototipi. Tıbbi cihaz değildir; teşhis koymaz.",
   "lang": "tr",
   "start_url": "./",
   "scope": "./",
