@@ -140,13 +140,18 @@ export function limbPose(fitMatrix, screen, visibility, joints, height, minVis =
     if (!ok(`${side}${midKey}`)) return;
     const mT = toModel(screen[`${side}${midKey}`]);
     const restUp = [M[0] - R[0], M[1] - R[1]];
-    const t1 = wrap(angle([mT[0] - R[0], mT[1] - R[1]]) - angle(restUp));
+    // Üst segment yönü izlenen kök → izlenen orta noktadan (MediaPipe omuz noktası eklem merkezinden kayık
+    // olduğundan model eklemini kök almak açıya sistematik hata katıyordu). Kök görünmüyorsa model eklemi.
+    const rootKey = `${side}${rootJ === 'shoulder' ? 'Shoulder' : 'Hip'}`;
+    const rT = ok(rootKey) ? toModel(screen[rootKey]) : R;
+    const t1 = wrap(angle([mT[0] - rT[0], mT[1] - rT[1]]) - angle(restUp));
     pose[`${rootName}-${S}`] = { plane: t1 };
     if (!ok(`${side}${endKey}`)) return;
+    // Alt segment açısı izlenen orta→uç yönünden alınır (izlenen eklem açısı korunur). v0.4'te modelin
+    // dirseğinden bileğe nişan alınıyordu; dirsek noktası hatası açıya 16–17° olarak yansıyordu.
     const eT = toModel(screen[`${side}${endKey}`]);
-    const mNow = [R[0] + rot(restUp, t1)[0], R[1] + rot(restUp, t1)[1]];
     const restLow = rot([E[0] - M[0], E[1] - M[1]], t1);
-    pose[`${midName}-${S}`] = { plane: wrap(angle([eT[0] - mNow[0], eT[1] - mNow[1]]) - angle(restLow)) };
+    pose[`${midName}-${S}`] = { plane: wrap(angle([eT[0] - mT[0], eT[1] - mT[1]]) - angle(restLow)) };
   };
   for (const [S, side] of [['L', 'left'], ['R', 'right']]) {
     chain(S, side, 'shoulder', 'elbow', 'wrist', 'Elbow', 'Wrist', 'shoulder', 'elbow');

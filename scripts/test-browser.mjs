@@ -320,8 +320,8 @@ const cameraAr = (truth) => async (page, r) => {
   await shot(page, r, 'ar', { visual: false });
 };
 
-const cameraLimbs = (truth) => async (page, r) => {
-  await page.goto(`${base}/index.html#/kamera?baslat`);
+const cameraLimbs = (truth, model = 'lite') => async (page, r) => {
+  await page.goto(`${base}/index.html?model=${model}#/kamera?baslat`);
   await page.waitFor("/etkin/.test(document.body.dataset.cameraStatus||'')", 60000);
   await page.waitFor("(window.__icgorAr?.limbs?.length ?? 0) >= 4", 20000).catch(() => {});
   await sleep(2500);
@@ -329,7 +329,7 @@ const cameraLimbs = (truth) => async (page, r) => {
   r.metrics.limbs = res;
   for (const [k, e] of Object.entries(res.angleErrDeg)) {
     if (e === null) r.problems.push(`${k} uzuv açısı üretilmedi`);
-    else if (Math.abs(e) > 20) r.problems.push(`${k} açı hatası ${e}°`); // dirsek konum hatası (MediaPipe) açıya yansır; ölçülen değer raporlanır
+    else if (Math.abs(e) > 15) r.problems.push(`${k} açı hatası ${e}°`);
   }
   for (const [k, e] of Object.entries(res.pointErrPctShoulder)) if (e > 25) r.problems.push(`${k} nokta hatası %${e} omuz genişliği`);
   await shot(page, r, 'uzuv', { visual: false });
@@ -386,6 +386,7 @@ async function main() {
   const armsBrowser = await launchChrome({ fakeVideo: armsVideo });
   try {
     for (const dev of ['iphone', 'desktop']) await scenario('kamera-uzuv', dev, cameraLimbs(armsTruth), armsBrowser);
+    await scenario('kamera-uzuv-full', 'iphone', cameraLimbs(armsTruth, 'full'), armsBrowser);
   } finally {
     armsBrowser.close();
     server.close();

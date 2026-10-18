@@ -5,23 +5,27 @@ import { FilesetResolver, PoseLandmarker } from '../../vendor/mediapipe/vision_b
 import { POSE } from './ar-fit.js';
 
 const WASM = new URL('../../vendor/mediapipe/wasm', import.meta.url).href;
-const MODEL = new URL('../../vendor/mediapipe/models/pose_landmarker_lite.task', import.meta.url).href;
+// lite: hızlı (canlı AR); full: daha doğru noktalar (tarama ölçümleri). Kıyas: scripts/pose-bench.mjs
+export const MODELS = {
+  lite: new URL('../../vendor/mediapipe/models/pose_landmarker_lite.task', import.meta.url).href,
+  full: new URL('../../vendor/mediapipe/models/pose_landmarker_full.task', import.meta.url).href,
+};
 
 export class PoseTracker {
-  static async create() {
+  static async create({ model = 'lite' } = {}) {
     const fileset = await FilesetResolver.forVisionTasks(WASM);
     let lastError;
     for (const delegate of ['GPU', 'CPU']) {
       try {
         const landmarker = await PoseLandmarker.createFromOptions(fileset, {
-          baseOptions: { modelAssetPath: MODEL, delegate },
+          baseOptions: { modelAssetPath: MODELS[model] ?? MODELS.lite, delegate },
           runningMode: 'VIDEO',
           numPoses: 1,
           minPoseDetectionConfidence: 0.5,
           minPosePresenceConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
-        return new PoseTracker(landmarker, delegate);
+        return new PoseTracker(landmarker, delegate, model);
       } catch (e) {
         lastError = e;
       }
@@ -29,14 +33,16 @@ export class PoseTracker {
     throw lastError ?? new Error('vücut takibi başlatılamadı');
   }
 
-  constructor(landmarker, delegate) {
+  constructor(landmarker, delegate, model) {
     this.landmarker = landmarker;
     this.delegate = delegate;
+    this.model = model;
     this.lastTs = -1;
   }
 
   /**
-   * @returns {null | {points: Record<string, number[]>, visibility: Record<string, number>}} normalize (0–1) video koordinatı
+   * @returns {null | {points: Record<string, number[]>, visibility: Record<string, number>, all: number[][]}}
+   *   normalize (0–1) video koordinatı; all: 33 noktanın tümü [x, y, z, görünürlük]
    */
   detect(video, nowMs) {
     const ts = Math.max(nowMs, this.lastTs + 1); // zaman damgası kesin artan olmalı
@@ -50,7 +56,7 @@ export class PoseTracker {
       points[k] = [p.x, p.y];
       visibility[k] = p.visibility ?? 0;
     }
-    return { points, visibility };
+    return { points, visibility, all: lm.map((p) => [p.x, p.y, p.z, p.visibility ?? 0]) };
   }
 
   close() { this.landmarker.close(); }

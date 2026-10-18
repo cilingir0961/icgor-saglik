@@ -2,7 +2,7 @@
 // - three.js (MIT): çekirdek + kullanılan eklentiler; çıplak 'three' içe aktarımları göreli yola çevrilir
 //   (import map gerekmez → CSP'de satır içi betik izni gerekmez).
 // - MediaPipe Tasks Vision (Apache-2.0): JS paketi + SIMD WASM.
-// - Poz modeli (pose_landmarker_lite.task, Apache-2.0): Google model deposundan indirilir, SHA-256 kaydedilir.
+// - Poz modelleri (pose_landmarker_lite/full.task, Apache-2.0): Google model deposundan indirilir, SHA-256 kaydedilir.
 //
 // Kullanım: node scripts/vendor.mjs
 
@@ -25,10 +25,12 @@ const THREE_FILES = [
   'examples/jsm/libs/meshopt_decoder.module.js',
 ];
 
-const POSE_MODEL = {
-  url: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-  out: 'mediapipe/models/pose_landmarker_lite.task',
-};
+// lite: canlı AR (hız); full: tarama ölçümleri (doğruluk; seçim gerekçesi docs/ARCHITECTURE.md'de ölçümlüdür)
+const POSE_MODELS = ['lite', 'full'].map((m) => ({
+  name: `pose_landmarker_${m}`,
+  url: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${m}/float16/1/pose_landmarker_${m}.task`,
+  out: `mediapipe/models/pose_landmarker_${m}.task`,
+}));
 
 async function copy(src, dst, transform) {
   await mkdir(dirname(dst), { recursive: true });
@@ -68,12 +70,14 @@ async function main() {
   for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm']) await copy(join(mp, 'wasm', f), join(V, 'mediapipe/wasm', f));
   await writeFile(join(V, 'mediapipe/LICENSE'), 'Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0\nMediaPipe Tasks Vision, © Google LLC.\n');
 
-  const res = await fetch(POSE_MODEL.url);
-  if (!res.ok) throw new Error(`model indirilemedi: ${res.status}`);
-  const model = Buffer.from(await res.arrayBuffer());
-  await mkdir(dirname(join(V, POSE_MODEL.out)), { recursive: true });
-  await writeFile(join(V, POSE_MODEL.out), model);
-  versions.pose_landmarker_lite = { url: POSE_MODEL.url, sha256: sha(model), bytes: model.length };
+  for (const M of POSE_MODELS) {
+    const res = await fetch(M.url);
+    if (!res.ok) throw new Error(`model indirilemedi: ${res.status}`);
+    const model = Buffer.from(await res.arrayBuffer());
+    await mkdir(dirname(join(V, M.out)), { recursive: true });
+    await writeFile(join(V, M.out), model);
+    versions[M.name] = { url: M.url, sha256: sha(model), bytes: model.length };
+  }
 
   await writeFile(join(V, 'VERSIONS.json'), JSON.stringify(versions, null, 2));
   console.log('vendor tamam:', versions);

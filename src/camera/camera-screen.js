@@ -84,7 +84,10 @@ export async function createCameraScreen() {
 
   async function PoseTracker() {
     const mod = await import('./pose-tracker.js');
-    return mod.PoseTracker.create();
+    // ?model=full ile daha doğru (daha yavaş) model; kalıcı tercih: localStorage icgor.poseModel
+    let model = new URLSearchParams(location.search).get('model');
+    try { model ??= localStorage.getItem('icgor.poseModel'); } catch { /* özel mod */ }
+    return mod.PoseTracker.create({ model: model === 'full' ? 'full' : 'lite' });
   }
 
   function stop() {
@@ -125,7 +128,7 @@ export async function createCameraScreen() {
     const pose = limbPose(fit.matrix, pts, det.visibility, joints, d.height);
     overlay.applyLimbPose(pose);
     overlay.render();
-    Object.assign(window.__icgorAr, { limbs: Object.keys(pose), pose });
+    Object.assign(window.__icgorAr, { limbs: Object.keys(pose), pose, model: tracker.model });
     lastGood = now;
     status(q.partial ? AR_MESSAGES_TR.partial : `Vücut takibi etkin (${tracker.delegate === 'GPU' ? 'GPU' : 'CPU'})`, q.partial);
   }
