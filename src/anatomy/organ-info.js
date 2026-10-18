@@ -240,3 +240,5 @@ export const ORGAN_INFO = {
 };
 
 export const organName = (id) => ORGAN_INFO[id]?.tr ?? id;
+/** Dar ekranda etiket metni: kas gruplarında "kasları" eki atılır (katman zaten kas katmanıdır). */
+export const labelName = (id, narrow) => (narrow && id.startsWith('mus-') ? organName(id).replace(/ kasları$/, '') : organName(id));

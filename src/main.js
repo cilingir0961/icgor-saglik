@@ -74,11 +74,14 @@ document.getElementById('btn-about').addEventListener('click', async () => {
       }
       return div;
     };
-    const B = m.sources.bodyparts3d, H = m.sources.hra;
+    const B = m.sources.bodyparts3d, H = m.sources.hra, Z = m.sources.zanatomy;
     box.append(
-      card('BodyParts3D 4.3 — tüm 3B modeller', [
+      card('BodyParts3D 4.3 — deri, iskelet, organlar, damarlar, sinirler', [
         ['Atıf', B.copyright], ['Lisans', B.licenseUrl, B.licenseUrl], ['Not', B.licenseNote], ['Yayın', B.citation],
       ]),
+      ...(Z ? [card('Z-Anatomy — kaslar ve tendonlar', [
+        ['Atıf', Z.copyright], ['Lisans', 'CC BY-SA 4.0', Z.licenseUrl], ['Not', Z.licenseNote], ['Kaynak', Z.repo, Z.repo],
+      ])] : []),
       card('Bağımsız doğrulama (dağıtılmaz)', [
         ['Atlas', `${H.title} — ${H.copyright}`], ['Lisans', 'CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
         ['Sonuç', `${m.validation.landmarks} ortak yapı, kayıt RMS ${m.validation.rmsMm} mm; akciğer merkezleri ${m.validation.lungs.map((l) => `${l.centroidDistanceMm} mm`).join(' / ')} içinde örtüşüyor.`],
@@ -91,3 +94,8 @@ document.getElementById('btn-about').addEventListener('click', async () => {
 
 window.addEventListener('hashchange', route);
 route();
+
+// PWA: çevrimdışı önbellek (yalnızca güvenli bağlamda; test için ?nosw ile kapatılabilir)
+if ('serviceWorker' in navigator && window.isSecureContext && !location.search.includes('nosw')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW kaydı başarısız', e)));
+}

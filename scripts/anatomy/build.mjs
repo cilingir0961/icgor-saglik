@@ -422,14 +422,35 @@ async function main() {
   manifest.validation.zanatomyRegistration = Object.fromEntries(Object.entries(registration)
     .map(([k, r]) => [k, { rmsMm: r.rmsMm, medianMm: r.medianMm, p90Mm: r.p90Mm, initialRmsMm: r.initialRmsMm, iterations: r.iterations }]));
 
+  // Etiket bağlantı noktası: yapının yüzeyinde bir köşe. İki taraflı ve orta hatta kütlesi az olan yapılarda
+  // (ör. iki ön kol) ağırlık merkezi boşlukta kalacağından hastanın sol yarısının merkezi hedeflenir.
+  const surfaceAnchor = (mesh) => {
+    const P = mesh.positions, n = P.length / 3;
+    const m = measure(mesh);
+    let mid = 0, lx = 0, ly = 0, lz = 0, ln = 0;
+    for (let i = 0; i < n; i++) {
+      if (Math.abs(P[i * 3]) < 0.03) mid++;
+      if (P[i * 3] > 0) { lx += P[i * 3]; ly += P[i * 3 + 1]; lz += P[i * 3 + 2]; ln++; }
+    }
+    const bilateral = mid / n < 0.03 && m.min[0] < -0.05 && m.max[0] > 0.05 && ln > 0;
+    const t = bilateral ? [lx / ln, ly / ln, lz / ln] : m.centroid;
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < n; i++) {
+      const d = (P[i * 3] - t[0]) ** 2 + (P[i * 3 + 1] - t[1]) ** 2 + (P[i * 3 + 2] - t[2]) ** 2;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return [P[best * 3], P[best * 3 + 1], P[best * 3 + 2]];
+  };
+
   for (const s of STRUCTURES) {
     const full = mergeMeshes(structParts.get(s.id).map((p) => p.mesh));
     const m = measure(transformMesh(full, toOut));
     const r = (v) => v.map((x) => +x.toFixed(4));
+    const anchor = surfaceAnchor(mergeMeshes(perLod.high.get(s.id).prims.map((p) => p.mesh)));
     manifest.structures.push({
       id: s.id, layer: s.layer, en: s.en, fma: s.fma, source: s.source ?? 'bodyparts3d',
       parts: structParts.get(s.id).length,
-      centroid: r(m.centroid), min: r(m.min), max: r(m.max),
+      centroid: r(m.centroid), min: r(m.min), max: r(m.max), anchor: r(anchor),
       tris: Object.fromEntries(LODS.map((l) => [l, perLod[l].get(s.id).tris])),
       sourceTris: triangleCount(full),
     });

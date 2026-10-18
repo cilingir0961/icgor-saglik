@@ -39,7 +39,10 @@ const DEVICES = {
 const results = [];
 let base = '';
 
+const ONLY = args.find((a) => a.startsWith('--only='))?.slice(7);
+
 async function scenario(name, device, fn, browser) {
+  if (ONLY && !ONLY.split(',').some((o) => `${device}/${name}`.includes(o))) return;
   const t0 = Date.now();
   const page = await browser.cdp.page(DEVICES[device]);
   const r = { name: `${device}/${name}`, ok: true, problems: [], metrics: {} };
@@ -90,6 +93,8 @@ async function openAnatomy(page, r, dev) {
   await page.waitFor("document.body.dataset.anatomyReady==='true'", 90000);
   r.metrics.loadMs = Date.now() - t0;
   await sleep(600);
+  // renderer.info son çizimi yansıtır; ilk dolu karenin çizilmesini bekle
+  await page.waitFor('window.__icgor.viewer.stats.triangles > 10000', 10000).catch(() => {});
   const st = await page.eval('window.__icgor.viewer.stats');
   r.metrics.lod = st.lod;
   r.metrics.triangles = st.triangles;
@@ -161,6 +166,86 @@ const anatomyLayers = async (page, r, dev) => {
   await noOverflow(page, r);
 };
 
+const anatomyMuscles = async (page, r, dev) => {
+  await openAnatomy(page, r, dev);
+  await page.eval("document.getElementById('anatomy-hint').hidden = true");
+  await page.eval("document.getElementById('btn-layers').click()");
+  await sleep(200);
+  const before = await page.eval("document.querySelector('[data-layer=muscles] .state')?.textContent ?? ''");
+  const t0 = Date.now();
+  await page.eval("document.querySelector('[data-layer=muscles] input[type=checkbox]').click()");
+  await page.waitFor("window.__icgor.viewer.layers.muscles.loaded===true", 60000);
+  r.metrics.muscleLazyLoadMs = Date.now() - t0;
+  await sleep(300);
+  const after = await page.eval("document.querySelector('[data-layer=muscles] .state')?.textContent ?? ''");
+  r.metrics.layerState = `${before} → ${after}`;
+  if (!/isteğe/.test(before) || !/yüklendi/.test(after)) r.problems.push(`katman durum metni: ${before} → ${after}`);
+  // Deriyi gizle, kasları önden göster; kas grupları etiketlenmeli
+  await page.eval("(()=>{window.__icgor.viewer.setLayerVisible('skin',false);document.getElementById('btn-layers').click()})()");
+  await sleep(600);
+  const st = await page.eval('(()=>{const v=window.__icgor.viewer;v.renderer.render(v.scene,v.camera);return v.stats})()');
+  r.metrics.trianglesWithMuscles = st.triangles;
+  r.metrics.drawCallsWithMuscles = st.calls;
+  const ids = await page.eval("window.__icgor.viewer.labelAnchors().map(a=>a.id)");
+  if (!ids.some((i) => i.startsWith('mus-'))) r.problems.push(`kas etiketi yok: ${ids}`);
+  const lab = await labelOverlaps(page);
+  if (lab.overlaps) r.problems.push(`${lab.overlaps} etiket çakışması`);
+  const mem = await page.eval("({heapMB: performance.memory ? +(performance.memory.usedJSHeapSize/1048576).toFixed(1) : null, geometries: window.__icgor.viewer.renderer.info.memory.geometries, textures: window.__icgor.viewer.renderer.info.memory.textures})");
+  Object.assign(r.metrics, mem);
+  if (ids.includes('mus-back')) r.problems.push('önden bakışta sırt kasları etiketlendi (arka yüz)');
+  await noOverflow(page, r);
+  await shot(page, r, 'kaslar');
+  // Arkadan bakış: sırt kasları etiketlenir, karın kasları (ön yüz) etiketlenmez
+  await page.eval("document.querySelector('[data-view=back]').click()");
+  await page.waitFor('!window.__icgor.viewer.tween', 15000);
+  await sleep(300);
+  const back = await page.eval("window.__icgor.viewer.labelAnchors().map(a=>a.id)");
+  r.metrics.backLabels = back.join(',');
+  if (!back.includes('mus-back') || back.includes('mus-abdomen')) r.problems.push(`arka görünüm etiketleri: ${back}`);
+};
+
+const anatomy4d = async (page, r, dev) => {
+  await openAnatomy(page, r, dev);
+  await page.eval("document.getElementById('anatomy-hint').hidden = true");
+  await page.eval("document.getElementById('btn-anim').click()");
+  await sleep(200);
+  if (await page.eval("document.getElementById('anim-panel').hidden")) r.problems.push('4D paneli açılmadı');
+  await page.eval("(()=>{for(const id of ['chk-anim-heart','chk-anim-breath']){const c=document.getElementById(id);c.checked=true;c.dispatchEvent(new Event('change'))}})()");
+  // Kalp: kulakçık ve karıncık farklı evrelerde ölçeklenir; solunum akciğeri büyütür
+  // Yazılım GPU'sunda kareler yavaş olduğundan zaman örnekleri belirlenimci alınır (fixedT + doğrudan tik).
+  const samples = [];
+  for (let i = 0; i < 12; i++) {
+    samples.push(await page.eval(`(()=>{const v=window.__icgor.viewer;v.anim.fixedT=${(i * 0.37).toFixed(2)};v._tickAnimations(performance.now());const hp=v.heartParts;const sx=(m)=>new v.camera.position.constructor().setFromMatrixScale(m.matrix).x;return {a:sx(hp.atria[0]),v:sx(hp.ventricles[0]),lung:v.structures.get('lung-left').pivot.scale.y}})()`));
+  }
+  await page.eval("window.__icgor.viewer.anim.fixedT = undefined");
+  const range = (k) => Math.max(...samples.map((x) => x[k])) - Math.min(...samples.map((x) => x[k]));
+  r.metrics.heartAtriaRange = +range('a').toFixed(4);
+  r.metrics.heartVentricleRange = +range('v').toFixed(4);
+  r.metrics.lungRange = +range('lung').toFixed(4);
+  if (!(range('a') > 0.005 && range('v') > 0.005)) r.problems.push(`kalp evreleri hareket etmiyor: ${JSON.stringify(samples.slice(0, 3))}`);
+  if (!(range('lung') > 0.001)) r.problems.push('solunum akciğeri değiştirmiyor');
+  const badge = await page.eval("({hidden: document.getElementById('sim-badge').hidden, text: document.getElementById('sim-badge-text').textContent})");
+  r.metrics.badge = badge.text;
+  if (badge.hidden || !/SİMÜLASYON/.test(badge.text) || !/gerçek ölçüm değil/.test(badge.text)) r.problems.push(`simülasyon rozeti: ${JSON.stringify(badge)}`);
+  // Eklem hareketi: kol kaldırma → deri gizlenir, kol segmentleri döner
+  await page.eval("document.querySelector('[data-motion=kol-kaldirma]').click()");
+  await page.eval("(()=>{const v=window.__icgor.viewer;v.setAnimation({heart:false, breath:false, fixedT:1.0});v._tickAnimations(performance.now());v.requestRender()})()");
+  await sleep(800);
+  const m = await page.eval("(()=>{const v=window.__icgor.viewer;const seg=v.segmentMeshes.find(x=>x.userData.segment==='upperArm-L');const e=seg?seg.matrix.elements:null;return {skin:v.effectiveOpacity([...v.structures.values()].find(s=>s.layer==='skin')), segs:v.segmentMeshes.length, rotated: e? Math.abs(e[1])+Math.abs(e[4]) : 0, motion:v.anim.motion}})()");
+  r.metrics.motion = m;
+  if (m.motion !== 'kol-kaldirma') r.problems.push('hareket seçilmedi');
+  if (m.skin > 0.01) r.problems.push(`hareket sırasında deri gizlenmedi (${m.skin})`);
+  if (!(m.segs > 0 && m.rotated > 0.3)) r.problems.push(`kol segmenti dönmedi: ${JSON.stringify(m)}`);
+  await page.eval("document.getElementById('anim-panel').hidden = true");
+  await sleep(300);
+  await shot(page, r, 'kol-kaldirma');
+  // Sıfırla: animasyonlar kapanır
+  await page.eval("document.getElementById('btn-reset').click()");
+  await sleep(400);
+  const off = await page.eval("window.__icgor.viewer.animating");
+  if (off) r.problems.push('sıfırla animasyonları durdurmadı');
+};
+
 const aboutDialog = async (page, r) => {
   await page.goto(`${base}/index.html#/anatomi`);
   await page.waitFor("document.body.dataset.anatomyReady==='true'", 90000);
@@ -168,6 +253,7 @@ const aboutDialog = async (page, r) => {
   await page.waitFor("document.getElementById('about-sources').textContent.includes('BodyParts3D')");
   const txt = await page.eval("document.getElementById('about-sources').textContent");
   if (!/CC Attribution 4\.0|CC BY/.test(txt)) r.problems.push('lisans bilgisi eksik');
+  if (!/Z-Anatomy/.test(txt) || !/CC BY-SA 4\.0/.test(txt)) r.problems.push('Z-Anatomy (CC BY-SA) atfı eksik');
 };
 
 const imagingPhantom = async (page, r) => {
@@ -234,6 +320,25 @@ const cameraAr = (truth) => async (page, r) => {
   await shot(page, r, 'ar', { visual: false });
 };
 
+const cameraLimbs = (truth) => async (page, r) => {
+  await page.goto(`${base}/index.html#/kamera?baslat`);
+  await page.waitFor("/etkin/.test(document.body.dataset.cameraStatus||'')", 60000);
+  await page.waitFor("(window.__icgorAr?.limbs?.length ?? 0) >= 4", 20000).catch(() => {});
+  await sleep(2500);
+  const res = await page.eval(`(async()=>{const {videoToDisplay}=await import('./src/camera/ar-fit.js');const v=document.getElementById('camera-video');const vp=document.getElementById('camera-viewport');const t=${JSON.stringify(truth)};const map=(p)=>videoToDisplay(p,{width:v.videoWidth,height:v.videoHeight},{width:vp.clientWidth,height:vp.clientHeight},true);const sw=Math.hypot(map(t.leftShoulder)[0]-map(t.rightShoulder)[0],map(t.leftShoulder)[1]-map(t.rightShoulder)[1]);const err={};for(const k of ['leftElbow','leftWrist','rightElbow','rightWrist']){const g=map(t[k]);const d=window.__icgorAr.pts[k];err[k]=+(Math.hypot(g[0]-d[0],g[1]-d[1])/sw*100).toFixed(1)}const ang={};for(const k in t.pose){const p=window.__icgorAr.pose[k];ang[k]=p?+((p.plane-t.pose[k])*180/Math.PI).toFixed(1):null}return {pointErrPctShoulder:err, angleErrDeg:ang, limbs:window.__icgorAr.limbs, detectMs:window.__icgorAr.detectMs}})()`);
+  r.metrics.limbs = res;
+  for (const [k, e] of Object.entries(res.angleErrDeg)) {
+    if (e === null) r.problems.push(`${k} uzuv açısı üretilmedi`);
+    else if (Math.abs(e) > 20) r.problems.push(`${k} açı hatası ${e}°`); // dirsek konum hatası (MediaPipe) açıya yansır; ölçülen değer raporlanır
+  }
+  for (const [k, e] of Object.entries(res.pointErrPctShoulder)) if (e > 25) r.problems.push(`${k} nokta hatası %${e} omuz genişliği`);
+  await shot(page, r, 'uzuv', { visual: false });
+  // İskelet katmanı: kol segmentleri takip edilen kollarla birlikte dönmeli
+  await page.eval("document.querySelector('[data-cam-layer=skeleton]').click()");
+  await sleep(3500);
+  await shot(page, r, 'uzuv-iskelet', { visual: false });
+};
+
 // ---------------- Koşucu ----------------
 
 async function main() {
@@ -254,6 +359,8 @@ async function main() {
       await scenario('anatomi-genel', dev, anatomyOverview, browser);
       await scenario('anatomi-kalp', dev, anatomyHeart, browser);
       await scenario('anatomi-katmanlar', dev, anatomyLayers, browser);
+      await scenario('anatomi-kaslar', dev, anatomyMuscles, browser);
+      await scenario('anatomi-4d', dev, anatomy4d, browser);
       await scenario('goruntu-fantom', dev, imagingPhantom, browser);
       await scenario('kamera-izin-reddi', dev, cameraDenied, browser);
     }
@@ -269,6 +376,18 @@ async function main() {
     for (const dev of ['iphone', 'desktop']) await scenario('kamera-ar', dev, cameraAr(truth), camBrowser);
   } finally {
     camBrowser.close();
+  }
+
+  // Kolları kaldırılmış figür: uzuv takibi (dirsek/bilek açıları yer gerçeğiyle karşılaştırılır)
+  const armsVideo = join(CACHE, 'person-arms.y4m');
+  const armsTruth = existsSync(armsVideo.replace('.y4m', '.truth.json'))
+    ? JSON.parse(await readFile(armsVideo.replace('.y4m', '.truth.json'), 'utf8'))
+    : await makeFakeVideo(armsVideo, 3, 'arms');
+  const armsBrowser = await launchChrome({ fakeVideo: armsVideo });
+  try {
+    for (const dev of ['iphone', 'desktop']) await scenario('kamera-uzuv', dev, cameraLimbs(armsTruth), armsBrowser);
+  } finally {
+    armsBrowser.close();
     server.close();
   }
 

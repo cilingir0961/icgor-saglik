@@ -25,7 +25,7 @@ function toI420({ w, h, rgb }) {
 }
 
 export async function makeFakeVideo(out, N = 24, mode = 'sway') {
-  const STATIC = mode === 'static';
+  const STATIC = mode === 'static' || mode === 'arms';
   const server = await serve();
   const { cdp, close } = await launchChrome();
   try {
@@ -34,7 +34,8 @@ export async function makeFakeVideo(out, N = 24, mode = 'sway') {
     let header, truth;
     for (let i = 0; i < N; i++) {
       const x = STATIC ? 0 : 0.12 * Math.sin((i / N) * 2 * Math.PI); // kişi sağa-sola salınır
-      await page.goto(`http://127.0.0.1:${server.address().port}/test/fixtures/person.html?x=${x.toFixed(3)}`);
+      const pose = mode === 'arms' ? '&pose=arms' : '';
+      await page.goto(`http://127.0.0.1:${server.address().port}/test/fixtures/person.html?x=${x.toFixed(3)}${pose}`);
       await page.waitFor("document.body.dataset.ready==='true'", 30000);
       const img = decodePng(await page.screenshot());
       if (i === 0) truth = JSON.parse(await page.eval('document.body.dataset.truth'));

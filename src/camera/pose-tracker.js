@@ -2,7 +2,7 @@
 // görüntü cihazda işlenir, ağa hiçbir şey gönderilmez.
 
 import { FilesetResolver, PoseLandmarker } from '../../vendor/mediapipe/vision_bundle.mjs';
-import { POSE, KEYS } from './ar-fit.js';
+import { POSE } from './ar-fit.js';
 
 const WASM = new URL('../../vendor/mediapipe/wasm', import.meta.url).href;
 const MODEL = new URL('../../vendor/mediapipe/models/pose_landmarker_lite.task', import.meta.url).href;
@@ -45,7 +45,7 @@ export class PoseTracker {
     const lm = res.landmarks?.[0];
     if (!lm) return null;
     const points = {}, visibility = {};
-    for (const k of KEYS) {
+    for (const k of Object.keys(POSE)) {
       const p = lm[POSE[k]];
       points[k] = [p.x, p.y];
       visibility[k] = p.visibility ?? 0;

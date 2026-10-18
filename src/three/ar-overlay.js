@@ -6,6 +6,7 @@ import { RoomEnvironment } from '../../vendor/three/examples/jsm/environments/Ro
 import { loadLayer } from './assets.js';
 import { createMaterial, applyOpacity } from './materials.js';
 import { pixelRatioFor } from './lod.js';
+import { Rig } from './rig.js';
 
 export class ArOverlay {
   constructor(container) {
@@ -32,35 +33,69 @@ export class ArOverlay {
     this.scene.add(this.body);
     this.layers = {};
     this.opacity = 0.75;
+    this.segmentMeshes = [];
+    this.rig = null;
     this.resize();
     new ResizeObserver(() => this.resize()).observe(container);
   }
 
+  setJoints(joints) { this.rig = new Rig(joints).setPose({}); }
+
   async loadLayer(layer) {
     if (this.layers[layer]) return this.layers[layer];
-    const scene = (await loadLayer(layer, 'low')).clone(true);
-    const materials = [];
-    scene.traverse((o) => {
-      if (!o.isMesh) return;
-      o.material = createMaterial(o.material?.name || 'bone');
-      materials.push(o.material);
-    });
-    // Diyafram karın organlarını örter; AR'da gösterilmez.
-    scene.getObjectByName('diaphragm')?.removeFromParent();
-    this.layers[layer] = { group: scene, materials };
-    this.body.add(scene);
-    this.setOpacity(this.opacity);
+    this.layers[layer] = this._load(layer);
     return this.layers[layer];
   }
 
+  async _load(layer) {
+    const scene = (await loadLayer(layer, 'low')).clone(true);
+    const materials = [];
+    this.body.add(scene);
+    scene.updateMatrixWorld(true);
+    scene.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = createMaterial(o.material?.name || 'bone');
+      o.material.vertexColors = Boolean(o.geometry.attributes.color);
+      materials.push(o.material);
+      const seg = o.geometry.userData?.segment;
+      if (seg && seg !== 'trunk') {
+        // Gövde grubuna göreli dinlenme dönüşümü (gövde matrisi yüklemede birimdir)
+        const restParent = o.parent.matrixWorld.clone().premultiply(this.body.matrixWorld.clone().invert());
+        Object.assign(o.userData, { segment: seg, base: o.matrix.clone(), restParent, restParentInv: restParent.clone().invert() });
+        o.matrixAutoUpdate = false;
+        this.segmentMeshes.push(o);
+      }
+    });
+    // Diyafram karın organlarını örter; AR'da gösterilmez.
+    scene.getObjectByName('diaphragm')?.removeFromParent();
+    const entry = { group: scene, materials };
+    this.layers[layer] = entry;
+    this.setOpacity(this.opacity);
+    this.applyLimbPose({});
+    return entry;
+  }
+
+  /** Uzuv segmentlerini Rig pozuna göre konumlar (model uzayında). */
+  applyLimbPose(pose) {
+    if (!this.rig) return;
+    this.rig.setPose(pose);
+    const M = new THREE.Matrix4();
+    for (const m of this.segmentMeshes) {
+      M.copy(m.userData.restParentInv).multiply(this.rig.matrices.get(m.userData.segment)).multiply(m.userData.restParent).multiply(m.userData.base);
+      m.matrix.copy(M);
+      m.matrixWorldNeedsUpdate = true;
+    }
+  }
+
   setLayerVisible(layer, visible) {
-    if (this.layers[layer]) this.layers[layer].group.visible = visible;
+    const L = this.layers[layer];
+    if (L && !(L instanceof Promise)) L.group.visible = visible;
     this.render();
   }
 
   setOpacity(opacity) {
     this.opacity = opacity;
-    for (const L of Object.values(this.layers)) for (const m of L.materials) applyOpacity(m, opacity);
+    for (const L of Object.values(this.layers)) if (L.materials) for (const m of L.materials) applyOpacity(m, opacity);
     this.render();
   }
 

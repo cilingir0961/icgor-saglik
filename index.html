@@ -10,6 +10,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; connect-src 'self' blob: data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>İçGör — 3B Anatomi</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="İçGör">
   <link rel="stylesheet" href="src/ui/styles.css">
 </head>
 <body data-screen="anatomy">
@@ -30,6 +36,8 @@
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.4-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.6-7.5 10-7.5 10z"/><path d="M5 12h3l1.5-2.5 2 5L13 12h6"/></symbol>
     <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M20 4v4h-4M4 20v-4h4"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
   </svg>
 
@@ -49,18 +57,33 @@
         <div class="labels" id="anatomy-labels"></div>
       </div>
       <div class="chip provenance" data-kind="atlas"><svg><use href="#i-shield"/></svg>Atlas modeli · kişiye ait tarama değil</div>
-      <div class="sim-badge" id="sim-badge" hidden><svg><use href="#i-heart"/></svg>SİMÜLASYON — gerçek kalp hareketi değil</div>
+      <div class="sim-badge" id="sim-badge" hidden><svg><use href="#i-heart"/></svg><span id="sim-badge-text">SİMÜLASYON</span></div>
       <div class="float-tools">
         <button class="tool" id="btn-layers" aria-expanded="false" aria-controls="layers-panel"><svg><use href="#i-layers"/></svg><span>Katmanlar</span></button>
         <button class="tool" id="btn-structures" aria-controls="structures-panel"><svg><use href="#i-list"/></svg><span>Yapılar</span></button>
+        <button class="tool" id="btn-anim" aria-expanded="false" aria-controls="anim-panel"><svg><use href="#i-pulse"/></svg><span>4D</span></button>
         <button class="tool" id="btn-labels" aria-pressed="true"><svg><use href="#i-tag"/></svg><span>Etiketler</span></button>
         <button class="tool" id="btn-reset"><svg><use href="#i-reset"/></svg><span>Sıfırla</span></button>
+        <button class="tool" id="btn-fullscreen" hidden><svg><use href="#i-expand"/></svg><span>Tam ekran</span></button>
       </div>
       <div class="view-switch seg" role="group" aria-label="Görünüm yönü">
         <button data-view="front" aria-pressed="true">Ön</button>
         <button data-view="left" aria-pressed="false">Sol</button>
         <button data-view="back" aria-pressed="false">Arka</button>
         <button data-view="right" aria-pressed="false">Sağ</button>
+      </div>
+      <div class="popover" id="anim-panel" hidden>
+        <h3>4D animasyonlar <span class="sim-tag">simülasyon</span></h3>
+        <label class="row"><span>Kalp atımı (kulakçık → karıncık)</span><input type="checkbox" id="chk-anim-heart" role="switch"></label>
+        <label class="row"><span>Solunum (akciğer, diyafram)</span><input type="checkbox" id="chk-anim-breath" role="switch"></label>
+        <div class="row stack"><span>Eklem hareketi</span>
+          <div class="seg small" role="radiogroup" aria-label="Eklem hareketi">
+            <button data-motion="" aria-pressed="true">Yok</button>
+            <button data-motion="kol-kaldirma" aria-pressed="false">Kol</button>
+            <button data-motion="yurume" aria-pressed="false">Yürüme</button>
+          </div>
+        </div>
+        <p class="fine">Eğitim amaçlı temsili animasyonlardır; ölçüm veya kişiye özgü fizyoloji değildir. Eklem hareketinde kemik ve kaslar rijit döner, deri katmanı gizlenir.</p>
       </div>
       <div class="popover" id="layers-panel" hidden>
         <h3>Katmanlar</h3>
@@ -98,11 +121,18 @@
       <div class="chip status" id="camera-status" hidden></div>
       <div class="float-tools" id="camera-tools" hidden>
         <button class="tool" id="btn-cam-flip"><svg><use href="#i-flip"/></svg><span>Çevir</span></button>
-        <button class="tool" id="btn-cam-skeleton" aria-pressed="false"><svg><use href="#i-body"/></svg><span>İskelet</span></button>
         <button class="tool" id="btn-cam-manual" aria-pressed="false"><svg><use href="#i-focus"/></svg><span>Elle</span></button>
         <button class="tool" id="btn-cam-stop"><svg><use href="#i-close"/></svg><span>Durdur</span></button>
       </div>
-      <label class="cam-opacity" id="cam-opacity-wrap" hidden>Saydamlık <input id="cam-opacity" type="range" min="0.2" max="1" step="0.05" value="0.75"></label>
+      <div class="cam-bottom" id="cam-opacity-wrap" hidden>
+        <div class="seg small cam-layers" role="group" aria-label="AR katmanları">
+          <button data-cam-layer="organs" aria-pressed="true">Organlar</button>
+          <button data-cam-layer="muscles" aria-pressed="false">Kaslar</button>
+          <button data-cam-layer="skeleton" aria-pressed="false">İskelet</button>
+          <button data-cam-layer="vessels" aria-pressed="false">Damarlar</button>
+        </div>
+        <label class="cam-opacity">Saydamlık <input id="cam-opacity" type="range" min="0.2" max="1" step="0.05" value="0.75"></label>
+      </div>
       <div class="overlay" id="camera-start">
         <div class="card">
           <svg class="card-icon"><use href="#i-camera"/></svg>

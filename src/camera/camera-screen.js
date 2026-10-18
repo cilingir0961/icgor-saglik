@@ -2,7 +2,8 @@
 // Takip yüklenemezse veya kullanıcı isterse elle hizalama (4 sürüklenebilir nokta) yedeği devreye girer.
 
 import { CameraSource, describeCameraError } from './camera-source.js';
-import { videoToDisplay, fitModelToScreen, assessPose, virtualHips, KEYS, AR_MESSAGES_TR } from './ar-fit.js';
+import { videoToDisplay, fitModelToScreen, assessPose, virtualHips, limbPose, KEYS, POSE, AR_MESSAGES_TR } from './ar-fit.js';
+// KEYS: gövde uydurmasında kullanılan 4 nokta (elle hizalama tutamaçları)
 import { PointFilter } from '../core/one-euro.js';
 import { ArOverlay } from '../three/ar-overlay.js';
 import { loadManifest, hasWebGL2 } from '../three/assets.js';
@@ -17,9 +18,12 @@ export async function createCameraScreen() {
   const handles = $('camera-handles');
   const hctx = handles.getContext('2d');
   const camera = new CameraSource(video);
-  let overlay = null, tracker = null, model = null;
+  let overlay = null, tracker = null, model = null, joints = null;
   let running = false, manual = false, rafId = 0;
   let filters = {}, lastGood = 0, manualPts = null, dragKey = null;
+  // Uyarlanabilir tespit hızı: tespit pahalıysa (yavaş cihaz) 30 Hz → 15 Hz (ısınma ve pil için)
+  let lastDetect = 0, detectMs = 0;
+  const camLayers = new Set(['organs']);
 
   const status = (text, warn = false) => {
     const el = $('camera-status');
@@ -60,8 +64,9 @@ export async function createCameraScreen() {
     status('Anatomi modeli yükleniyor…');
     const manifest = await loadManifest();
     model = manifest.landmarks;
-    await overlay.loadLayer('organs');
-    if ($('btn-cam-skeleton').getAttribute('aria-pressed') === 'true') await overlay.loadLayer('skeleton');
+    joints = manifest.joints;
+    overlay.setJoints(joints);
+    for (const L of camLayers) await overlay.loadLayer(L);
     overlay.setOpacity(Number($('cam-opacity').value));
     if (!manual && !tracker) {
       status('Vücut takibi hazırlanıyor…');
@@ -102,17 +107,25 @@ export async function createCameraScreen() {
     if (manual) return; // elle modda yalnızca sürüklemede güncellenir
     if (!tracker || video.readyState < 2) return;
     const now = performance.now();
+    if (now - lastDetect < (detectMs > 20 ? 66 : 33)) return;
+    lastDetect = now;
     const det = tracker.detect(video, now);
+    detectMs = 0.9 * detectMs + 0.1 * (performance.now() - now);
     const d = display();
     if (!det) return lost(now);
     const pts = {};
-    for (const k of KEYS) pts[k] = videoToDisplay(det.points[k], { width: video.videoWidth, height: video.videoHeight }, d, camera.mirrored);
+    for (const k of Object.keys(POSE)) pts[k] = videoToDisplay(det.points[k], { width: video.videoWidth, height: video.videoHeight }, d, camera.mirrored);
     const q = assessPose(pts, det.visibility);
     if (!q.ok) return lost(now, AR_MESSAGES_TR[q.reason]);
     if (q.partial) Object.assign(pts, virtualHips(pts.leftShoulder, pts.rightShoulder, model, camera.mirrored ? -1 : 1));
     const t = now / 1000;
-    for (const k of KEYS) pts[k] = (filters[k] ??= new PointFilter({ minCutoff: 1.2, beta: 0.02 })).filter(pts[k], t);
-    apply(pts, d);
+    for (const k of Object.keys(POSE)) pts[k] = (filters[k] ??= new PointFilter({ minCutoff: 1.2, beta: 0.02 })).filter(pts[k], t);
+    const fit = apply(pts, d);
+    // Uzuvlar: dirsek/bilek/diz/ayak bileği görünürse kol ve bacak segmentleri gerçek açıya döner
+    const pose = limbPose(fit.matrix, pts, det.visibility, joints, d.height);
+    overlay.applyLimbPose(pose);
+    overlay.render();
+    Object.assign(window.__icgorAr, { limbs: Object.keys(pose), pose });
     lastGood = now;
     status(q.partial ? AR_MESSAGES_TR.partial : `Vücut takibi etkin (${tracker.delegate === 'GPU' ? 'GPU' : 'CPU'})`, q.partial);
   }
@@ -128,7 +141,8 @@ export async function createCameraScreen() {
   function apply(pts, d) {
     const fit = fitModelToScreen(pts, model, { mirrored: camera.mirrored, height: d.height });
     overlay.setPose(fit.elements);
-    window.__icgorAr = { fit, pts }; // test/hata ayıklama
+    window.__icgorAr = { fit, pts, detectMs: +detectMs.toFixed(1) }; // test/hata ayıklama
+    return fit;
   }
 
   // ---------- Elle hizalama ----------
@@ -214,12 +228,16 @@ export async function createCameraScreen() {
       status(describeCameraError(e), true);
     }
   });
-  $('btn-cam-skeleton').addEventListener('click', async (e) => {
-    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
-    e.currentTarget.setAttribute('aria-pressed', String(on));
-    if (on && overlay) await overlay.loadLayer('skeleton');
-    overlay?.setLayerVisible('skeleton', on);
-  });
+  for (const b of document.querySelectorAll('[data-cam-layer]')) {
+    b.addEventListener('click', async () => {
+      const L = b.dataset.camLayer;
+      const on = !camLayers.has(L);
+      if (on) camLayers.add(L); else camLayers.delete(L);
+      b.setAttribute('aria-pressed', String(on));
+      if (on && overlay) await overlay.loadLayer(L);
+      overlay?.setLayerVisible(L, on);
+    });
+  }
   $('btn-cam-manual').addEventListener('click', () => setManual(!manual));
   $('cam-opacity').addEventListener('input', (e) => overlay?.setOpacity(Number(e.target.value)));
   document.addEventListener('visibilitychange', () => { if (document.hidden && running) stop(); });

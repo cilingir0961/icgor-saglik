@@ -66,3 +66,33 @@ test('poz değerlendirme: görünürlük ve uzaklık', () => {
   assert.equal(assessPose(lm, { ...all, rightShoulder: 0.2 }).reason, 'no-shoulders');
   assert.equal(assessPose({ ...lm, leftShoulder: [110, 200] }, all).reason, 'too-far');
 });
+
+test('uzuv pozu: ekranda yana kalkmış sol kol model uzayında ~90° düzlem içi açı verir', async () => {
+  const { limbPose, invertAffine2 } = await import('../src/camera/ar-fit.js');
+  const J = {
+    'shoulder-L': [0.17, 1.40, 0], 'elbow-L': [0.21, 1.12, 0], 'wrist-L': [0.25, 0.89, 0],
+    'shoulder-R': [-0.17, 1.40, 0], 'elbow-R': [-0.21, 1.12, 0], 'wrist-R': [-0.25, 0.89, 0],
+    'hip-L': [0.095, 0.9, 0], 'knee-L': [0.08, 0.46, 0], 'ankle-L': [0.07, 0.08, 0],
+    'hip-R': [-0.095, 0.9, 0], 'knee-R': [-0.08, 0.46, 0], 'ankle-R': [-0.07, 0.08, 0],
+  };
+  // model xy → ekran (y yukarı): ölçek 500, öteleme; H = 1000
+  const s = 500, H = 1000, M = [[s, 0, 200], [0, s, -100]];
+  const toScreen = ([x, y]) => [s * x + 200, H - (s * y - 100)];
+  const I = invertAffine2(M);
+  const back = [I[0][0] * 300 + I[0][1] * 400 + I[0][2], I[1][0] * 300 + I[1][1] * 400 + I[1][2]];
+  assert.ok(Math.abs(s * back[0] + 200 - 300) < 1e-9 && Math.abs(s * back[1] - 100 - 400) < 1e-9, 'ters afin');
+  // Sol kol yana (dirsek omzun 0,28 m solunda, aynı yükseklikte); bilek düz devam
+  const shL = J['shoulder-L'];
+  const vis = { leftElbow: 1, leftWrist: 1, rightElbow: 0.1, rightWrist: 0.1, leftKnee: 1, leftAnkle: 1, rightKnee: 0, rightAnkle: 0 };
+  const screen = {
+    leftElbow: toScreen([shL[0] + 0.28, shL[1]]), leftWrist: toScreen([shL[0] + 0.52, shL[1]]),
+    leftKnee: toScreen(J['knee-L']), leftAnkle: toScreen(J['ankle-L']),
+  };
+  const pose = limbPose(M, screen, vis, J, H);
+  const restAngle = Math.atan2(J['elbow-L'][1] - shL[1], J['elbow-L'][0] - shL[0]);
+  assert.ok(Math.abs(pose['shoulder-L'].plane - (0 - restAngle)) < 1e-6, `omuz açısı ${pose['shoulder-L'].plane}`);
+  assert.ok(pose['shoulder-L'].plane > 1.3 && pose['shoulder-L'].plane < 1.8, 'yaklaşık 80–100°');
+  assert.ok(Math.abs(pose['elbow-L'].plane) < 0.2, 'dirsek düz');
+  assert.ok(Math.abs(pose['hip-L'].plane) < 1e-6 && Math.abs(pose['knee-L'].plane) < 1e-6, 'bacak dinlenmede');
+  assert.equal(pose['shoulder-R'], undefined, 'görünmeyen uzuv poz almaz');
+});

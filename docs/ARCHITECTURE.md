@@ -1,11 +1,11 @@
-# Mimari ve Teknik Kararlar (v0.3)
+# Mimari ve Teknik Kararlar (v0.4)
 
 ## Temel ilke: üç veri sınıfı, hiç karıştırılmaz
 
 | Sınıf | Kaynak | Ne gösterir | Arayüzdeki işaret |
 |---|---|---|---|
 | **Atlas** | BodyParts3D referans vücudu | Genel anatomi; kişiye ait değil | Mavi rozet "Atlas modeli · kişiye ait tarama değil" |
-| **Takip** | Kamera + MediaPipe (omuz/kalça) | Atlasın kişinin dış hattına *yaklaşık* yerleşimi | Sarı rozet "Yaklaşık hizalama …" |
+| **Takip** | Kamera + MediaPipe (omuz/kalça + dirsek/bilek/diz/ayak bileği) | Atlasın kişinin dış hattına *yaklaşık* yerleşimi | Sarı rozet "Yaklaşık hizalama …" |
 | **Tıbbi görüntü** | DICOM dosyası (BT/MR); ileride onaylı ultrason | Gerçek cihaz verisi, tanı amaçlı değil | Yeşil rozet; sentetik fantomda turuncu "gerçek hasta verisi değil" |
 
 `src/imaging/sources.js` bu sınıfları ve kaynak türlerini modeller. Gelecekteki **ultrason cihazı**
@@ -20,19 +20,24 @@ index.html                 Uygulama kabuğu (3 ekran, CSP)        legacy.html  W
 src/main.js                Hash yönlendirme, ekranların isteğe bağlı yüklenmesi, Hakkında/lisanslar
 src/ui/anatomy-screen.js   Katmanlar, yapı listesi/arama, detay paneli, etiketler
 src/ui/styles.css          Tasarım sistemi (mobil öncelikli; ≥900px sol menü + sağ panel)
-src/three/anatomy-viewer.js  three.js görüntüleyici: PBR, seçim, odak, tek başına, simülasyon, görüş kaydırma
+src/three/anatomy-viewer.js  three.js görüntüleyici: 6 katman (3'ü tembel), PBR, seçim, odak, tek başına,
+                           4D simülasyonlar, görünür yüzey etiketleri, görüş kaydırma
+src/three/rig.js           Rijit uzuv segmentleri için eklem zinciri (omuz→dirsek, kalça→diz)
+src/three/animations.js    4D eğri fonksiyonları (saf): kalp evreleri, solunum, kol kaldırma, yürüme
 src/three/ar-overlay.js    Kamera üstü saydam 3B katman (ortografik, 1 birim = 1 px)
 src/three/{assets,materials,palette,lod}.js  Tembel yükleme+önbellek, malzemeler, LOD seçimi (saf)
-src/camera/ar-fit.js       Video→ekran eşleme, afin uydurma, sanal kalça, poz kalitesi (saf)
+src/camera/ar-fit.js       Video→ekran eşleme, afin uydurma, sanal kalça, poz kalitesi, uzuv açıları (saf)
 src/camera/pose-tracker.js MediaPipe Pose Landmarker (yerel dosyalar, GPU→CPU yedeği)
 src/camera/camera-screen.js İzin akışı, takip döngüsü, One Euro yumuşatma, elle hizalama
 src/imaging/               Görüntüleme kaynak mimarisi + DICOM ekranı
 src/dicom/                 Bağımsız DICOM ayrıştırıcı, hacim/MPR/MIP, sentetik fantom
 src/anatomy/organ-info.js  Eğitim içeriği (Türkçe)
-scripts/anatomy/           Varlık hattı: kaynak indir+doğrula → birleştir → doğrula → LOD → GLB
+scripts/anatomy/           Varlık hattı: kaynak indir+doğrula → birleştir → Z-Anatomy kaydı (ICP) → doğrula
+                           → eklem merkezleri → LOD → AO pişirme → GLB  (zanatomy-export.py: Blender/bpy)
+manifest.webmanifest, sw.js, icons/  PWA (iPhone "Ana Ekrana Ekle", çevrimdışı önbellek)
 scripts/test-browser.mjs   Tarayıcı test paketi (CDP), scripts/lib/{cdp,png}.mjs
 vendor/                    three.js 0.186.1 (MIT), MediaPipe Tasks Vision 1.1.1 + poz modeli (Apache-2.0)
-assets/anatomy/            high/low × skin/skeleton/organs .glb, manifest.json, provenance.json, LICENSE.md
+assets/anatomy/            high/low × skin/muscles/skeleton/organs/vessels/nerves .glb, manifest.json, provenance.json, LICENSE.md
 ```
 
 ## Kararlar ve gerekçeleri
@@ -65,6 +70,33 @@ assets/anatomy/            high/low × skin/skeleton/organs .glb, manifest.json,
 10. **Kalp simülasyonu.** İki tepeli ("lub-dub") ölçek eğrisi, 70 atım/dk; ekranda sürekli
     "SİMÜLASYON — gerçek kalp hareketi değil" rozeti.
 
+### v0.4 kararları
+
+11. **Kaslar: Z-Anatomy (CC BY-SA 4.0).** BodyParts3D 4.3'te kas ağları eksik/parçalı. Z-Anatomy aynı
+    vücuttan türetilmiş, uzmanlarca düzenlenmiş bir Blender atlası. Ancak iskeleti yeniden pozlanmış
+    (humerus/femur merkezleri 113–121 mm kaymış, kemik boyları ~%3 farklı). Çözüm: 12 bölgede (baş-boyun,
+    göğüs, bel, pelvis + 8 uzuv segmenti) Z iskeletinden BodyParts3D iskeletine kırpılmış afin ICP; her kas
+    en yakın Z kemiğinin bölgesinin dönüşümünü alır. Kapı: bölge medyanı < 2,5 mm ve p90 < 6 mm, yoksa derleme
+    durur. Sonuç: medyan ≤ 1,53 mm, p90 ≤ 5,17 mm; femur/humerus merkezleri 0,34–0,74 mm.
+12. **Yinelenen temsiller.** BodyParts3D'de sağ el/ayak parmak kemiklerinin iki farklı pozdaki kopyaları
+    bulundu (v0.3'te de vardı). Karşı taraftaki aynalı eşine en yakın kopya tutulur; 28 kopya ayıklandı.
+13. **Damarlar ve sinirler** BodyParts3D'den (aort, vena kava, arter/ven ağaçları, omurilik, periferik
+    sinirler); kas, damar ve sinir katmanları **tembel** yüklenir (ilk açılışta indirilmez).
+14. **Pişirilmiş ortam kapanması (AO).** Her tepe noktası için yarım küre ışın izleme (three-mesh-bvh),
+    sonuç COLOR_0 olarak GLB'ye yazılır. Çalışma anında ek maliyet yok (ek shader geçişi/SSAO yok → ısınma
+    ve pil için güvenli). A/B ölçümü aşağıda.
+15. **Eklem donanımı ve 4D.** Uzuv segmentleri rijit döner (ağ deformasyonu yok); bu yüzden hareket
+    sırasında deri gizlenir ve omuz kaslarında küçük boşluklar oluşabilir — bilinen sınırlama. Kalp: önce
+    kulakçıklar, sonra karıncıklar (70/dk); solunum: akciğer tepeden sabit genişler, diyafram ve karın
+    organları iner, kaburgalar genişler (14/dk). Hepsi "SİMÜLASYON — … (gerçek ölçüm değil)" rozetiyle.
+16. **Uzuv takibi.** Gövde afininin tersiyle ekran noktaları model düzlemine taşınır; her segmentin düzlem
+    içi açısı bulunur. Ön kol açısı, modelin bileği takip edilen bileğe otursun diye hesaplanır. Derinlik
+    (kameraya doğru bükülme) tek kameradan güvenilir çıkmadığı için modellenmez.
+17. **Isınma/pil.** İstek üzerine çizim (hareket yokken kare çizilmez); tespit süresi 20 ms'yi aşarsa takip
+    30 → 15 Hz'e iner; AR her zaman düşük LOD; sayfa gizlenince kamera durur.
+18. **Etiketler v2.** Opak katmanlarda (kas/iskelet) etiket, yapının kameraya bakan dış yüzeyine bağlanır;
+    arka yüzdeki yapı etiketlenmez (önden "Sırt kasları" yok). Etiketler araç çubuğunun altına girmez.
+
 ## Doğrulama ve ölçümler
 
 ### Anatomik konum (otomatik, `test/anatomy-assets.test.js`)
@@ -94,11 +126,17 @@ sınır %0,5 (yazılım GPU'su deterministik; değişmeyen kodda fark %0,00; kas
 **Sınır:** Bu ortamda yalnızca Chromium var. iPhone profili ekran/dokunma/kullanıcı aracısı
 emülasyonudur, **gerçek Safari/WebKit değildir**. Gerçek cihaz testi yapılmadı.
 
+### Uzuv takibi (kolları kaldırılmış sahte figür, yer gerçeğiyle)
+Kas+iskelet katmanları ten rengiyle çizilip Rig ile pozlanır (sol omuz 57°, sol dirsek 34°, sağ omuz −40°).
+Bilek noktası hatası omuz genişliğinin %0,3–2,7'si; omuz açısı hatası 7–8°, sağ dirsek 9°, sol dirsek 16–17°
+(MediaPipe dirsek noktası %8 kayık; ön kol bileğe oturtulduğu için bu açıya yansır). Eşik 20°.
+
 ## Yol haritası
 
 1. Gerçek cihaz testleri (iPhone Safari, Android Chrome) — HTTPS önizleme gerekir (kullanıcı onayıyla).
-2. Omuz noktası kalibrasyonu — açık lisanslı, yer gerçekli poz veri kümesiyle (insan deneyi değil).
-3. DICOM'dan yüzey çıkarma (marching cubes) ve WebGL hacim görüntüleme; Web Worker'da yükleme.
-4. Sıkıştırılmış DICOM (JPEG-LS/JPEG2000) için açık kaynak WASM çözücü.
-5. Daha ayrıntılı organ alt yapıları (kalp odacıkları, karaciğer segmentleri) için katman içi gezinme.
-6. Ultrason cihaz bağdaştırıcısı: yalnızca düzenleyici onaylı cihazlar, `sources.js` sözleşmesiyle.
+2. Deri ağının iskelete bağlanması (skinning, ağırlık boyama) — hareket sırasında deri ve omuz kasları.
+3. Omuz noktası kalibrasyonu — açık lisanslı, yer gerçekli poz veri kümesiyle (insan deneyi değil).
+4. DICOM'dan yüzey çıkarma (marching cubes) ve WebGL hacim görüntüleme; Web Worker'da yükleme.
+5. Sıkıştırılmış DICOM (JPEG-LS/JPEG2000) için açık kaynak WASM çözücü.
+6. Daha ayrıntılı organ alt yapıları (kalp odacıkları, karaciğer segmentleri) için katman içi gezinme.
+7. Ultrason cihaz bağdaştırıcısı: yalnızca düzenleyici onaylı cihazlar, `sources.js` sözleşmesiyle.

@@ -26,7 +26,11 @@ export function layoutLabels(items, opts) {
       let x = side === 'left' ? cx - spread / 2 - gap : cx + spread / 2 + gap;
       // Ekran dışına taşmasın.
       x = side === 'left' ? Math.max(x, margin + w) : Math.min(x, width - margin - w);
-      out.push({ id: g.id, text: g.text, anchor: g.anchor, x, y: ys[i], align: side === 'left' ? 'right' : 'left' });
+      let align = side === 'left' ? 'right' : 'left';
+      // Dar ekranda kenara itilen etiket kendi bağlantı noktasını örtüyorsa noktanın öbür yanına geçer.
+      if (side === 'right' && x < g.anchor[0] + 4 && g.anchor[0] - 8 - w >= margin) { x = g.anchor[0] - 8; align = 'right'; }
+      if (side === 'left' && x > g.anchor[0] - 4 && g.anchor[0] + 8 + w <= width - margin) { x = g.anchor[0] + 8; align = 'left'; }
+      out.push({ id: g.id, text: g.text, anchor: g.anchor, x, y: ys[i], align });
     });
   };
   place(left, 'left');

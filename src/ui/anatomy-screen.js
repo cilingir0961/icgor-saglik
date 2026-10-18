@@ -3,16 +3,19 @@
 import { AnatomyViewer, HIDDEN_BY_DEFAULT } from '../three/anatomy-viewer.js';
 import { hasWebGL2 } from '../three/assets.js';
 import { chooseLod, browserLodEnv } from '../three/lod.js';
-import { ORGAN_INFO, SYSTEMS, LAYERS, organName } from '../anatomy/organ-info.js';
+import { ORGAN_INFO, SYSTEMS, LAYERS, organName, labelName } from '../anatomy/organ-info.js';
 import { MATERIALS } from '../three/palette.js';
 import { layoutLabels } from '../render/labels.js';
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const LAYER_IDS = ['organs', 'skeleton', 'skin'];
-const SWATCH = { skin: 'skin', skeleton: 'bone' };
+const LAYER_IDS = ['organs', 'skeleton', 'muscles', 'vessels', 'nerves', 'skin'];
+const SWATCH = { skin: 'skin', skeleton: 'bone', muscles: 'muscle', nerves: 'nerve' };
+const MOTION_TR = { 'kol-kaldirma': 'kol hareketi', yurume: 'yürüme' };
 const LABEL_PRIORITY = ['heart', 'lung-right', 'lung-left', 'liver', 'stomach', 'brain', 'kidney-right', 'kidney-left',
   'large-intestine', 'small-intestine', 'spleen', 'bladder', 'pancreas', 'gallbladder', 'airways', 'esophagus', 'diaphragm',
+  'mus-chest', 'mus-abdomen', 'mus-shoulder-arm', 'mus-hip-thigh', 'mus-head-neck', 'mus-forearm-hand', 'mus-leg-foot', 'mus-back', 'mus-pelvic',
+  'aorta', 'vena-cava', 'arteries', 'veins', 'spinal-cord', 'nerves',
   'skull', 'ribcage', 'spine', 'pelvis', 'upper-limb-bones', 'lower-limb-bones'];
 
 export async function createAnatomyScreen() {
@@ -65,14 +68,21 @@ export async function createAnatomyScreen() {
   for (const id of LAYER_IDS) {
     const row = document.createElement('div');
     row.className = 'layer-row';
-    row.innerHTML = '<label><input type="checkbox" checked role="switch"> <span></span></label><output></output><input type="range" min="0.05" max="1" step="0.05">';
+    row.innerHTML = '<label><input type="checkbox" role="switch"> <span></span></label><output></output><input type="range" min="0.05" max="1" step="0.05">';
     row.querySelector('span').textContent = LAYERS[id].tr;
+    row.querySelector('input[type="checkbox"]').checked = viewer.layers[id].visible;
     const range = row.querySelector('input[type="range"]');
     const out = row.querySelector('output');
     range.value = String(viewer.layers[id].opacity);
     range.setAttribute('aria-label', `${LAYERS[id].tr} saydamlığı`);
     out.textContent = `%${Math.round(viewer.layers[id].opacity * 100)}`;
     row.querySelector('input[type="checkbox"]').addEventListener('change', (e) => viewer.setLayerVisible(id, e.target.checked));
+    if (LAYERS[id].lazy) {
+      const st = document.createElement('span');
+      st.className = 'state';
+      st.textContent = 'isteğe bağlı';
+      row.querySelector('label').append(st);
+    }
     range.addEventListener('input', () => {
       viewer.setLayerOpacity(id, Number(range.value));
       out.textContent = `%${Math.round(range.value * 100)}`;
@@ -84,12 +94,60 @@ export async function createAnatomyScreen() {
   layersBtn.addEventListener('click', () => {
     const open = $('layers-panel').hidden;
     $('layers-panel').hidden = !open;
+    $('anim-panel').hidden = true;
     layersBtn.setAttribute('aria-expanded', String(open));
+    $('btn-anim')?.setAttribute('aria-expanded', 'false');
   });
   $('sel-quality').addEventListener('change', (e) => {
     try { localStorage.setItem('icgor.lod', e.target.value); } catch { /* özel mod */ }
     location.reload();
   });
+
+  const layerState = (layer, text, loading = false) => {
+    const st = rows.querySelector(`[data-layer="${layer}"] .state`);
+    if (st) { st.textContent = text; st.classList.toggle('loading', loading); }
+  };
+  viewer.addEventListener('layerloading', (e) => layerState(e.detail.layer, 'yükleniyor…', true));
+  viewer.addEventListener('layerloaded', (e) => {
+    layerState(e.detail.layer, 'yüklendi');
+    if (viewer.manifest) buildStructureList($('structure-search').value);
+    drawLabels();
+  });
+  viewer.addEventListener('layererror', (e) => layerState(e.detail.layer, 'yüklenemedi', true));
+
+  // ---------- 4D animasyonlar ----------
+  const animBtn = $('btn-anim');
+  animBtn.addEventListener('click', () => {
+    const open = $('anim-panel').hidden;
+    $('anim-panel').hidden = !open;
+    $('layers-panel').hidden = true;
+    animBtn.setAttribute('aria-expanded', String(open));
+    layersBtn.setAttribute('aria-expanded', 'false');
+  });
+  $('chk-anim-heart').addEventListener('change', (e) => viewer.setAnimation({ heart: e.target.checked }));
+  $('chk-anim-breath').addEventListener('change', (e) => viewer.setAnimation({ breath: e.target.checked }));
+  for (const b of document.querySelectorAll('[data-motion]')) {
+    b.addEventListener('click', () => viewer.setAnimation({ motion: b.dataset.motion || null }));
+  }
+  viewer.addEventListener('animchange', (e) => {
+    const a = e.detail;
+    $('chk-anim-heart').checked = a.heart;
+    $('chk-anim-breath').checked = a.breath;
+    $('chk-heart-sim').checked = a.heart;
+    for (const b of document.querySelectorAll('[data-motion]')) b.setAttribute('aria-pressed', String((b.dataset.motion || null) === a.motion));
+    const parts = [a.heart && 'kalp atımı', a.breath && 'solunum', a.motion && MOTION_TR[a.motion]].filter(Boolean);
+    $('sim-badge').hidden = parts.length === 0;
+    $('sim-badge-text').textContent = `SİMÜLASYON — ${parts.join(' · ')} (gerçek ölçüm değil)`;
+  });
+
+  // ---------- Tam ekran (destekleyen tarayıcılarda; iPhone'da Ana Ekran uygulaması olarak tam ekran açılır) ----------
+  if (document.fullscreenEnabled) {
+    $('btn-fullscreen').hidden = false;
+    $('btn-fullscreen').addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    });
+  }
 
   // ---------- Yapı listesi ----------
   function buildStructureList(filter = '') {
@@ -129,7 +187,7 @@ export async function createAnatomyScreen() {
       }
     }
   }
-  const clsOf = (id) => ({ 'lung-left': 'lung', 'lung-right': 'lung', 'kidney-left': 'kidney', 'kidney-right': 'kidney', airways: 'airway' })[id] ?? id;
+  const clsOf = (id) => ({ 'lung-left': 'lung', 'lung-right': 'lung', 'kidney-left': 'kidney', 'kidney-right': 'kidney', airways: 'airway', aorta: 'artery', arteries: 'artery', 'vena-cava': 'vein', veins: 'vein' })[id] ?? id;
   $('structure-search').addEventListener('input', (e) => buildStructureList(e.target.value));
   $('btn-structures').addEventListener('click', () => {
     $('detail-panel').hidden = true;
@@ -164,7 +222,9 @@ export async function createAnatomyScreen() {
     $('detail-system').textContent = SYSTEMS[info?.system] ?? '';
     const src = $('detail-source');
     src.className = 'source-line';
-    src.textContent = 'Atlas modeli: BodyParts3D (DBCLS) · genel referans anatomi, kişiye ait değil';
+    src.textContent = s?.source === 'zanatomy'
+      ? 'Atlas modeli: Z-Anatomy (BodyParts3D türevi, CC BY-SA 4.0) · genel referans anatomi, kişiye ait değil'
+      : 'Atlas modeli: BodyParts3D (DBCLS) · genel referans anatomi, kişiye ait değil';
     $('detail-location').textContent = info?.location ?? '';
     $('detail-function').textContent = info?.function ?? '';
     const facts = $('detail-facts');
@@ -197,10 +257,7 @@ export async function createAnatomyScreen() {
     buildStructureList($('structure-search').value);
   });
   $('detail-opacity').addEventListener('input', (e) => viewer.setStructureOpacity(viewer.selected, Number(e.target.value)));
-  $('chk-heart-sim').addEventListener('change', (e) => {
-    viewer.setHeartSimulation(e.target.checked);
-    $('sim-badge').hidden = !e.target.checked;
-  });
+  $('chk-heart-sim').addEventListener('change', (e) => viewer.setAnimation({ heart: e.target.checked }));
   document.addEventListener('panelclosed', (e) => { if (e.detail.id === 'detail-panel') viewer.select(null); });
 
   // ---------- Görünüm, etiketler, sıfırlama ----------
@@ -218,8 +275,7 @@ export async function createAnatomyScreen() {
   });
   $('btn-reset').addEventListener('click', () => {
     viewer.resetView();
-    viewer.setHeartSimulation(false);
-    $('sim-badge').hidden = true;
+    viewer.setAnimation({ heart: false, breath: false, motion: null });
     for (const s of viewer.structures.values()) { s.visible = !HIDDEN_BY_DEFAULT.has(s.id); s.opacity = null; }
     viewer.setLayerVisible('organs', true);
     buildStructureList();
@@ -248,9 +304,13 @@ export async function createAnatomyScreen() {
     const anchors = viewer.labelAnchors()
       .filter((a) => !viewer.isolated || a.id === viewer.isolated)
       .sort((a, b) => rank(a.id) - rank(b.id)).slice(0, max)
-      .map((a) => ({ ...a, text: organName(a.id) }));
+      .map((a) => ({ ...a, text: labelName(a.id, narrow) }));
+    // Sağdaki araç çubuğu tuvalin üstünde durur; etiketler onun soluna sığdırılır.
+    const rail = document.querySelector('#screen-anatomy .float-tools, .float-tools')?.getBoundingClientRect();
+    const cv = viewer.renderer.domElement.getBoundingClientRect();
+    const usable = rail && rail.width && rail.left > cv.left ? Math.min(viewer.width, rail.left - cv.left - 4) : viewer.width;
     const placed = layoutLabels(anchors, {
-      width: viewer.width, height: viewer.height, lineHeight: narrow ? 28 : 27, margin: 8, gap: narrow ? 10 : 28, // etiket kutusu 24 px
+      width: usable, height: viewer.height, lineHeight: narrow ? 28 : 27, margin: 8, gap: narrow ? 10 : 28, // etiket kutusu 24 px
       measure: (t) => measureCtx.measureText(t).width + 18,
     });
     for (const l of placed) {

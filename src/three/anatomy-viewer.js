@@ -1,6 +1,7 @@
 // Etkileşimli 3B anatomi görüntüleyici (three.js / WebGL2).
-// Katmanlar: deri, iskelet, organlar. Yapı seçimi, tek başına inceleme, odaklama,
-// saydamlık, görünüm ön ayarları ve AÇIKÇA SİMÜLASYON olarak işaretli kalp atımı.
+// Katmanlar: deri, kaslar, iskelet, organlar, damarlar, sinirler (son üçü istenince yüklenir).
+// Yapı seçimi, tek başına inceleme, odaklama, saydamlık, görünüm ön ayarları ve AÇIKÇA SİMÜLASYON
+// olarak işaretli 4D animasyonlar: iki evreli kalp atımı, solunum, eklem hareketleri.
 
 import * as THREE from '../../vendor/three/build/three.module.js';
 import { OrbitControls } from '../../vendor/three/examples/jsm/controls/OrbitControls.js';
@@ -8,6 +9,11 @@ import { RoomEnvironment } from '../../vendor/three/examples/jsm/environments/Ro
 import { loadLayer, loadManifest } from './assets.js';
 import { createMaterial, applyOpacity } from './materials.js';
 import { pixelRatioFor } from './lod.js';
+import { Rig } from './rig.js';
+import { heartCycle, heartScale, breathCycle, breathEffects, MOTIONS } from './animations.js';
+
+// Solunumda aşağı itilen karın organları ve göreli katsayıları
+const ABDOMINAL = { liver: 1, stomach: 1, spleen: 1, gallbladder: 1, pancreas: 0.8, 'kidney-left': 0.6, 'kidney-right': 0.6, 'small-intestine': 0.5, 'large-intestine': 0.5 };
 
 const LAYER_ORDER = ['organs', 'skeleton', 'skin'];
 const GHOST = 0.06;
@@ -57,10 +63,15 @@ export class AnatomyViewer extends EventTarget {
       organs: { visible: true, opacity: 1, loaded: false },
       skeleton: { visible: true, opacity: 1, loaded: false },
       skin: { visible: true, opacity: 0.18, loaded: false },
+      muscles: { visible: false, opacity: 1, loaded: false, lazy: true },
+      vessels: { visible: false, opacity: 1, loaded: false, lazy: true },
+      nerves: { visible: false, opacity: 1, loaded: false, lazy: true },
     };
+    this.segmentMeshes = [];
+    this.heartParts = null;
+    this.anim = { heart: false, breath: false, motion: null, t0: 0 };
     this.selected = null;
     this.isolated = null;
-    this.heartSim = { on: false, bpm: 70, t0: 0 };
     this.tween = null;
     this.needsRender = true;
     this.active = true;
@@ -77,6 +88,7 @@ export class AnatomyViewer extends EventTarget {
   async init(onProgress) {
     this.manifest = await loadManifest();
     this.byId = Object.fromEntries(this.manifest.structures.map((s) => [s.id, s]));
+    this.rig = new Rig(this.manifest.joints).setPose({});
     this.setView('front', false);
     // Önce organlar (en önemli içerik), sonra iskelet ve deri — isteğe bağlı yükleme.
     let done = 0;
@@ -89,6 +101,12 @@ export class AnatomyViewer extends EventTarget {
 
   async loadLayer(layer, onProgress) {
     if (this.layers[layer].loaded) return;
+    if (this.layers[layer].loading) return this.layers[layer].loading;
+    this.layers[layer].loading = this._loadLayer(layer, onProgress);
+    try { await this.layers[layer].loading; } finally { this.layers[layer].loading = null; }
+  }
+
+  async _loadLayer(layer, onProgress) {
     const shared = await loadLayer(layer, this.lod, onProgress);
     const scene = shared.clone(true);
     for (const node of [...scene.children]) {
@@ -105,22 +123,46 @@ export class AnatomyViewer extends EventTarget {
         if (!o.isMesh) return;
         const cls = o.geometry.userData?.cls ?? o.material?.name ?? 'bone';
         o.material = createMaterial(o.material?.name || cls);
+        o.material.vertexColors = Boolean(o.geometry.attributes.color); // pişirilmiş ortam kapatması
         o.userData.structureId = id;
+        o.userData.cls = cls;
+        o.userData.segment = o.geometry.userData?.segment ?? 'trunk';
+        o.geometry.computeBoundingBox();
         o.renderOrder = layer === 'skin' ? 10 : layer === 'skeleton' ? 1 : 0;
         meshes.push(o);
         materials.push(o.material);
       });
       this.root.add(pivot);
+      pivot.userData.basePos = pivot.position.clone();
       this.structures.set(id, { id, layer, pivot, meshes, materials, info, visible: !HIDDEN_BY_DEFAULT.has(id), opacity: null });
+      // Eklem donanımına bağlı ağlar: dinlenme konumundaki üst dönüşüm saklanır (rig dünya uzayında çalışır).
+      pivot.updateMatrixWorld(true);
+      for (const m of meshes) {
+        if (m.userData.segment === 'trunk') continue;
+        m.userData.base = m.matrix.clone();
+        m.userData.restParent = m.parent.matrixWorld.clone();
+        m.userData.restParentInv = m.parent.matrixWorld.clone().invert();
+        m.matrixAutoUpdate = false;
+        this.segmentMeshes.push(m);
+      }
+      if (id === 'heart') this._prepareHeart(meshes);
     }
     this.layers[layer].loaded = true;
+    this._applyRig();
     this._applyAll();
     this.dispatchEvent(new CustomEvent('layerloaded', { detail: { layer } }));
   }
 
   // ---------- Görünürlük ve saydamlık ----------
 
-  setLayerVisible(layer, visible) { this.layers[layer].visible = visible; this._applyAll(); }
+  setLayerVisible(layer, visible) {
+    this.layers[layer].visible = visible;
+    if (visible && !this.layers[layer].loaded) {
+      this.dispatchEvent(new CustomEvent('layerloading', { detail: { layer } }));
+      this.loadLayer(layer).catch((e) => this.dispatchEvent(new CustomEvent('layererror', { detail: { layer, error: e } })));
+    }
+    this._applyAll();
+  }
   setLayerOpacity(layer, opacity) { this.layers[layer].opacity = opacity; this._applyAll(); }
   setStructureVisible(id, visible) { const s = this.structures.get(id); if (s) { s.visible = visible; this._applyAll(); } }
   setStructureOpacity(id, opacity) { const s = this.structures.get(id); if (s) { s.opacity = opacity; this._applyAll(); } }
@@ -129,6 +171,7 @@ export class AnatomyViewer extends EventTarget {
   effectiveOpacity(s) {
     const L = this.layers[s.layer];
     if (!L.visible || !s.visible) return 0;
+    if (this.anim.motion && s.layer === 'skin') return 0; // deri rijit segmentlerle deforme olamaz
     if (this.isolated && this.isolated !== s.id) return s.layer === 'skin' ? 0 : GHOST;
     if (this.isolated === s.id) return s.opacity ?? 1;
     return s.opacity ?? L.opacity;
@@ -187,7 +230,7 @@ export class AnatomyViewer extends EventTarget {
     const dir = new THREE.Vector3(...dirs[name] ?? dirs.front);
     if (!animate || !this.manifest) {
       this.controls.target.set(0, 1.2, 0);
-      this.camera.position.set(0, 1.25, 2.6);
+      this.camera.position.set(0, 1.25, 0).add(dir.multiplyScalar(2.6));
       this.controls.update();
       this.requestRender();
       return;
@@ -217,18 +260,97 @@ export class AnatomyViewer extends EventTarget {
     this.requestRender();
   }
 
-  // ---------- Kalp atımı simülasyonu (eğitim amaçlı, gerçek veri değil) ----------
+  // ---------- 4D eğitim simülasyonları (gerçek fizyolojik ölçüm değildir) ----------
 
-  setHeartSimulation(on, bpm = 70) {
-    this.heartSim = { on, bpm, t0: performance.now() };
-    if (!on) this.structures.get('heart')?.pivot.scale.setScalar(1);
+  /** @param {{heart?:boolean, breath?:boolean, motion?:string|null}} next */
+  setAnimation(next) {
+    const prevMotion = this.anim.motion;
+    Object.assign(this.anim, next);
+    if (!this.anim.t0) this.anim.t0 = performance.now();
+    if (!this.anim.heart) this._applyHeart({ atria: 1, ventricles: 1 });
+    if (!this.anim.breath) this._applyBreath(0);
+    if (!this.anim.motion) { this.rig.setPose({}); this._applyRig(); }
+    if (prevMotion !== this.anim.motion) this._applyAll(); // deri görünürlüğü
     this.requestRender();
+    this.dispatchEvent(new CustomEvent('animchange', { detail: { ...this.anim } }));
   }
 
-  /** Basitleştirilmiş iki tepeli ("lub-dub") ölçek eğrisi; t: döngü içindeki faz 0–1. */
-  static heartbeatScale(t, amp = 0.045) {
-    const pulse = (c, w) => Math.exp(-(((t - c) / w) ** 2));
-    return 1 + amp * (pulse(0.12, 0.05) * 0.55 + pulse(0.32, 0.07));
+  /** Geriye uyumluluk: yalnızca kalp atımı. */
+  setHeartSimulation(on) { this.setAnimation({ heart: on }); }
+  get heartSim() { return { on: this.anim.heart }; }
+  get animating() { return this.anim.heart || this.anim.breath || Boolean(this.anim.motion); }
+
+  /** Kulakçık ve karıncık ağlarını ayırır; her grup kendi merkezi etrafında ölçeklenir. */
+  _prepareHeart(meshes) {
+    const centerOf = (list) => {
+      const box = new THREE.Box3();
+      for (const m of list) { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox); }
+      return box.getCenter(new THREE.Vector3());
+    };
+    const atria = meshes.filter((m) => m.userData.cls === 'heart-atrium');
+    const ventricles = meshes.filter((m) => m.userData.cls !== 'heart-atrium');
+    for (const m of meshes) { m.userData.heartBase = m.matrix.clone(); m.matrixAutoUpdate = false; }
+    this.heartParts = { atria, ventricles, ca: centerOf(atria.length ? atria : meshes), cv: centerOf(ventricles) };
+  }
+
+  _applyHeart(sc) {
+    if (!this.heartParts) return;
+    const about = (c, k) => new THREE.Matrix4().makeTranslation(c.x, c.y, c.z)
+      .multiply(new THREE.Matrix4().makeScale(k, k, k)).multiply(new THREE.Matrix4().makeTranslation(-c.x, -c.y, -c.z));
+    const { atria, ventricles, ca, cv } = this.heartParts;
+    for (const m of atria) m.matrix.copy(m.userData.heartBase).multiply(about(ca, sc.atria));
+    for (const m of ventricles) m.matrix.copy(m.userData.heartBase).multiply(about(cv, sc.ventricles));
+    for (const m of [...atria, ...ventricles]) m.matrixWorldNeedsUpdate = true;
+  }
+
+  _applyBreath(inhale) {
+    const e = breathEffects(inhale);
+    const set = (id, fn) => { const st = this.structures.get(id); if (st) fn(st.pivot, st.info); };
+    for (const id of ['lung-left', 'lung-right']) {
+      set(id, (p, info) => {
+        // Akciğer tepesi sabit kalır, genişleme aşağı-öne-yana olur.
+        const c = p.userData.basePos, a = new THREE.Vector3(c.x, info.max[1], c.z);
+        const S = new THREE.Vector3(...e.lungScale);
+        p.scale.copy(S);
+        p.position.copy(a).add(c.clone().sub(a).multiply(S));
+      });
+    }
+    set('diaphragm', (p) => p.position.copy(p.userData.basePos).add(new THREE.Vector3(0, -e.diaphragmDrop, 0)));
+    set('heart', (p) => p.position.copy(p.userData.basePos).add(new THREE.Vector3(0, -e.heartDrop, 0)));
+    for (const [id, k] of Object.entries(ABDOMINAL)) {
+      set(id, (p) => p.position.copy(p.userData.basePos).add(new THREE.Vector3(0, -e.abdominalDrop * k, 0)));
+    }
+    set('ribcage', (p, info) => {
+      // Kaburgalar omurga ekseni etrafında hafifçe genişler (ön-arka ve yanlara).
+      const c = p.userData.basePos, a = new THREE.Vector3(0, c.y, info.min[2]);
+      const S = new THREE.Vector3(...e.ribScale);
+      p.scale.copy(S);
+      p.position.copy(a).add(c.clone().sub(a).multiply(S));
+    });
+  }
+
+  _applyRig() {
+    if (!this.rig) return;
+    const M = new THREE.Matrix4();
+    for (const m of this.segmentMeshes) {
+      const T = this.rig.matrices.get(m.userData.segment);
+      if (!T) continue;
+      // yerel = (üst_dinlenme)⁻¹ · T · üst_dinlenme · taban
+      M.copy(m.userData.restParentInv).multiply(T).multiply(m.userData.restParent).multiply(m.userData.base);
+      m.matrix.copy(M);
+      m.matrixWorldNeedsUpdate = true;
+    }
+  }
+
+  _tickAnimations(now) {
+    // fixedT: belirli bir anı dondurur (test ve ekran görüntüsü için belirlenimci kare)
+    const t = this.anim.fixedT ?? (now - this.anim.t0) / 1000;
+    if (this.anim.heart) this._applyHeart(heartScale(heartCycle(t)));
+    if (this.anim.breath) this._applyBreath(breathCycle(t).inhale);
+    if (this.anim.motion && MOTIONS[this.anim.motion]) {
+      this.rig.setPose(MOTIONS[this.anim.motion].pose(t));
+      this._applyRig();
+    }
   }
 
   // ---------- Seçme (raycast) ve etiketler ----------
@@ -251,17 +373,77 @@ export class AnatomyViewer extends EventTarget {
   labelAnchors() {
     const out = [];
     const w = this.width, h = this.height;
-    const organsVisible = this.layers.organs.visible && this.layers.organs.opacity > 0.25;
+    // Etiketlenecek katman: görünen en dıştaki içerik katmanı (opak kaslar organları örter)
+    const L = this.layers;
+    const vis = (k) => L[k].visible && L[k].loaded && L[k].opacity > 0.25;
+    const labelLayer = vis('muscles') && L.muscles.opacity >= 0.5 ? 'muscles'
+      : vis('organs') ? 'organs' : vis('vessels') ? 'vessels' : vis('nerves') ? 'nerves' : vis('muscles') ? 'muscles' : 'skeleton';
+    // Opak dış katmanlarda (kas, iskelet) bağlantı yüzeyi kameraya bakmıyorsa etiket gizlenir
+    // (ör. önden bakışta "Sırt kasları"). Organlar saydam deri altında her yönden görülebildiği için hariç.
+    const facingTest = labelLayer === 'muscles' || labelLayer === 'skeleton';
     for (const s of this.structures.values()) {
       if (s.layer === 'skin' || !s.info) continue;
-      if (s.layer === 'skeleton' && organsVisible && !this.isolated) continue;
+      if (!this.isolated && s.layer !== labelLayer) continue;
       const op = this.effectiveOpacity(s);
       if (op < 0.3) continue;
-      const v = new THREE.Vector3(...s.info.centroid).project(this.camera);
+      // Etiket noktası yüzeydeki bağlantı noktası; eklem hareketinde segmentiyle birlikte taşınır
+      let a = new THREE.Vector3(...(s.info.anchor ?? s.info.centroid));
+      if (facingTest && !this.animating) {
+        const vis = this._visibleAnchor(s);
+        if (vis) a = vis.clone();
+        else if (!this.isolated && s.id !== this.selected && this._anchorCandidates(s).length) continue;
+      }
+      const segMesh = s.meshes.find((mm) => mm.userData.segment !== 'trunk' && mm.geometry.boundingBox?.containsPoint(a));
+      if (segMesh) a.applyMatrix4(this.rig.matrices.get(segMesh.userData.segment));
+      const v = a.project(this.camera);
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
       out.push({ id: s.id, anchor: [(v.x + 1) / 2 * w, (1 - v.y) / 2 * h] });
     }
     return out;
+  }
+
+  /**
+   * Opak katmanlar için bağlantı adayları: manifest noktasına ≤ 8 cm uzaklıktaki tepe noktalarından
+   * en fazla 256 tanesi (konum + normal, dinlenme pozunda model uzayında). İlk kullanımda bir kez hesaplanır.
+   */
+  _anchorCandidates(s) {
+    if (s.candidates) return s.candidates;
+    const a = new THREE.Vector3(...(s.info.anchor ?? s.info.centroid));
+    const all = [];
+    const p = new THREE.Vector3(), n = new THREE.Vector3();
+    for (const m of s.meshes) {
+      const pos = m.geometry.attributes.position, nor = m.geometry.attributes.normal;
+      if (!nor) continue;
+      m.updateWorldMatrix(true, false);
+      const N = new THREE.Matrix3().getNormalMatrix(m.matrixWorld);
+      const trunk = !m.userData.segment || m.userData.segment === 'trunk';
+      const radial = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        p.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+        const d = p.distanceTo(a);
+        if (d > 0.08) continue;
+        // Gövdede yalnız dış yüzey: normal vücut ekseninden dışarı bakmalı (sırt kaslarının derin ön yüzü elenir)
+        if (trunk && n.fromBufferAttribute(nor, i).applyMatrix3(N).dot(radial.set(p.x, 0, p.z).normalize()) < 0.25) continue;
+        all.push({ pos: p.clone(), normal: n.fromBufferAttribute(nor, i).applyMatrix3(N).normalize().clone(), d });
+      }
+    }
+    all.sort((x, y) => x.d - y.d);
+    const step = Math.max(1, Math.ceil(all.length / 256));
+    s.candidates = all.filter((_, i) => i % step === 0);
+    return s.candidates;
+  }
+
+  /** Kameraya bakan en yakın aday (yoksa null → etiket arka yüzde kalır, gösterilmez). */
+  _visibleAnchor(s) {
+    let best = null, bestScore = -Infinity;
+    const toCam = new THREE.Vector3();
+    for (const c of this._anchorCandidates(s)) {
+      const facing = c.normal.dot(toCam.copy(this.camera.position).sub(c.pos).normalize());
+      if (facing < 0.45) continue;
+      const score = facing - c.d * 8; // 8 cm uzaklık ≈ 0,64 yönelim puanı
+      if (score > bestScore) { bestScore = score; best = c.pos; }
+    }
+    return best;
   }
 
   /**
@@ -314,13 +496,9 @@ export class AnatomyViewer extends EventTarget {
       if (k >= 1) this.tween = null;
       animating = true;
     }
-    if (this.heartSim.on) {
-      const heart = this.structures.get('heart');
-      if (heart) {
-        const period = 60000 / this.heartSim.bpm;
-        heart.pivot.scale.setScalar(AnatomyViewer.heartbeatScale(((now - this.heartSim.t0) % period) / period));
-        animating = true;
-      }
+    if (this.animating) {
+      this._tickAnimations(now);
+      animating = true;
     }
     if (this.controls.update()) animating = true;
     if (animating || this.needsRender) {

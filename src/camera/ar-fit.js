@@ -6,7 +6,12 @@
 
 import { fitAffine, linearDeterminant } from '../core/affine.js';
 
-export const POSE = { leftShoulder: 11, rightShoulder: 12, leftHip: 23, rightHip: 24 };
+export const POSE = {
+  leftShoulder: 11, rightShoulder: 12, leftHip: 23, rightHip: 24,
+  leftElbow: 13, rightElbow: 14, leftWrist: 15, rightWrist: 16,
+  leftKnee: 25, rightKnee: 26, leftAnkle: 27, rightAnkle: 28,
+};
+export const LIMB_KEYS = ['leftElbow', 'rightElbow', 'leftWrist', 'rightWrist', 'leftKnee', 'rightKnee', 'leftAnkle', 'rightAnkle'];
 export const KEYS = ['leftShoulder', 'rightShoulder', 'leftHip', 'rightHip'];
 
 /**
@@ -74,6 +79,7 @@ export function fitModelToScreen(screen, model, { mirrored = false, height } = {
   return {
     // three.js Matrix4.elements (sütun öncelikli)
     elements: [a, c, 0, 0, b, d, 0, 0, 0, 0, sz, 0, tx, ty, 0, 1],
+    matrix,
     rms,
     scale,
     facing,
@@ -96,3 +102,55 @@ export const AR_MESSAGES_TR = {
   'too-far': 'Çok uzaktasınız — kameraya biraz yaklaşın.',
   partial: 'Kısmi takip: kalçalar görünmüyor, gövde oranından tahmin ediliyor.',
 };
+
+/** 2B afin matrisin [[a,b,tx],[c,d,ty]] tersi. */
+export function invertAffine2([[a, b, tx], [c, d, ty]]) {
+  const det = a * d - b * c;
+  if (Math.abs(det) < 1e-12) throw new Error('tekil afin');
+  const ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
+  return [[ia, ib, -(ia * tx + ib * ty)], [ic, id, -(ic * tx + id * ty)]];
+}
+
+const angle = (v) => Math.atan2(v[1], v[0]);
+const wrap = (x) => Math.atan2(Math.sin(x), Math.cos(x));
+const rot = ([x, y], t) => [x * Math.cos(t) - y * Math.sin(t), x * Math.sin(t) + y * Math.cos(t)];
+
+/**
+ * Ekrandaki uzuv noktalarından düzlem içi (model koronal düzlemi, Z ekseni) eklem açıları.
+ * Gövde uydurmasının tersiyle ekran noktaları model (x,y) uzayına taşınır; her segmentin dinlenme
+ * yönüyle hedef yön arasındaki açı bulunur. Derinlik (kameraya doğru bükülme) 2B görüntüden güvenilir
+ * çıkarılamadığından modellenmez.
+ * @param {number[][]} fitMatrix fitModelToScreen().matrix (model xy → ekran, y yukarı)
+ * @param {Record<string, number[]>} screen ekran pikseli (y aşağı) — LIMB_KEYS + omuz/kalça
+ * @param {Record<string, number>} visibility
+ * @param {Record<string, number[]>} joints manifest.joints
+ * @param {number} height ekran yüksekliği (y çevirimi için)
+ * @returns {Record<string, {plane:number}>} Rig.setPose için
+ */
+export function limbPose(fitMatrix, screen, visibility, joints, height, minVis = 0.5) {
+  const inv = invertAffine2(fitMatrix);
+  const toModel = (p) => {
+    const q = [p[0], height - p[1]];
+    return [inv[0][0] * q[0] + inv[0][1] * q[1] + inv[0][2], inv[1][0] * q[0] + inv[1][1] * q[1] + inv[1][2]];
+  };
+  const pose = {};
+  const chain = (S, side, rootJ, midJ, endJ, midKey, endKey, rootName, midName) => {
+    const R = joints[`${rootJ}-${S}`], M = joints[`${midJ}-${S}`], E = joints[`${endJ}-${S}`];
+    const ok = (k) => screen[k] && (visibility[k] ?? 0) >= minVis;
+    if (!ok(`${side}${midKey}`)) return;
+    const mT = toModel(screen[`${side}${midKey}`]);
+    const restUp = [M[0] - R[0], M[1] - R[1]];
+    const t1 = wrap(angle([mT[0] - R[0], mT[1] - R[1]]) - angle(restUp));
+    pose[`${rootName}-${S}`] = { plane: t1 };
+    if (!ok(`${side}${endKey}`)) return;
+    const eT = toModel(screen[`${side}${endKey}`]);
+    const mNow = [R[0] + rot(restUp, t1)[0], R[1] + rot(restUp, t1)[1]];
+    const restLow = rot([E[0] - M[0], E[1] - M[1]], t1);
+    pose[`${midName}-${S}`] = { plane: wrap(angle([eT[0] - mNow[0], eT[1] - mNow[1]]) - angle(restLow)) };
+  };
+  for (const [S, side] of [['L', 'left'], ['R', 'right']]) {
+    chain(S, side, 'shoulder', 'elbow', 'wrist', 'Elbow', 'Wrist', 'shoulder', 'elbow');
+    chain(S, side, 'hip', 'knee', 'ankle', 'Knee', 'Ankle', 'hip', 'knee');
+  }
+  return pose;
+}

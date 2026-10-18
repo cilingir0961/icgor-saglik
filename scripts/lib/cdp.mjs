@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 export const ROOT = resolve(import.meta.dirname, '../..');
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
-  '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.glb': 'model/gltf-binary',
+  '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.json': 'application/json', '.glb': 'model/gltf-binary',
   '.wasm': 'application/wasm', '.task': 'application/octet-stream', '.md': 'text/markdown',
 };
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
