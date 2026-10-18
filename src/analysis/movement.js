@@ -7,6 +7,7 @@
 
 import { MP, DEG, angleAt, dist, mid, median, mad, sub, add } from './geometry.js';
 import { cmPerPx } from './posture.js';
+import { frontArmFrameOk, shoulderRef } from './frame-check.js';
 
 const px = (lm, k, w, h) => [lm[MP[k]][0] * w, lm[MP[k]][1] * h];
 const vis = (lm, k) => lm[MP[k]][3] ?? 0;
@@ -144,10 +145,18 @@ export const MOVEMENT_TESTS = {
 function analyzeArmRaise(samples, { width: w, height: h }) {
   const out = { metrics: {}, issues: [], reps: {} };
   const per = {};
+  // Anatomik tutarlılık kapısı (frame-check.js; kamera koçuyla aynı kural): sol/sağ karışan kareler çıkarılır
+  const refWidth = shoulderRef(samples.slice(0, 8).map((s) => s.lm));
+  const bad = samples.map(({ lm }) => !frontArmFrameOk(lm, { refWidth }).ok);
+  const nBad = bad.filter(Boolean).length;
+  out.rejectedFrames = nBad;
+  if (nBad) out.issues.push(`${nBad} karede vücut takibi kolları tutarsız konumladı (sol/sağ karışması); bu kareler ölçüme katılmadı.`);
+  if (nBad > samples.length * 0.2) { out.issues.push('Tutarsız kare oranı yüksek (%20 üstü); kol ölçümü güvenilir değil, tekrar deneyin.'); }
   for (const [S, s, T] of SIDES) {
     const ref = refLength(samples, `${s}Shoulder`, `${s}Elbow`, w, h);
     let foreshortened = 0;
-    const abd = samples.map(({ lm }) => {
+    const abd = samples.map(({ lm }, i) => {
+      if (bad[i]) return NaN;
       if (!['leftHip', 'rightHip', 'leftShoulder', 'rightShoulder', `${s}Elbow`].every((k) => vis(lm, k) > 0.6)) return NaN;
       const len = dist(px(lm, `${s}Shoulder`, w, h), px(lm, `${s}Elbow`, w, h));
       if (ref && len < FORESHORTEN * ref) { foreshortened++; return NaN; }
@@ -169,6 +178,8 @@ function analyzeArmRaise(samples, { width: w, height: h }) {
     per[S] = metric(`${T} kol kaldırma açısı (en yüksek)`, peaks.map((p) => p.value), { uSys: 6 });
     out.metrics[`abduction${S}`] = per[S];
   }
+  if (nBad > samples.length * 0.2) for (const S of ['L', 'R']) per[S] = { ...per[S], grade: 'düşük' };
+  out.metrics.abductionL = per.L; out.metrics.abductionR = per.R;
   out.metrics.abductionAsym = asymmetry('Sağ–sol fark (kol kaldırma)', per.L, per.R);
   if (!out.reps.L && !out.reps.R) out.issues.push('Tekrar algılanamadı: kollar 60°\'nin üzerine kalkmadı veya görünmedi.');
   out.valid = (out.reps.L ?? 0) + (out.reps.R ?? 0) > 0;

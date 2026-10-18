@@ -10,6 +10,7 @@
 
 import { MP, angleAt, dist, median, mad, mid, sub, add } from '../analysis/geometry.js';
 import { metricStatus, STATUS_TEXT } from '../analysis/validation-status.js';
+import { frontArmFrameOk } from '../analysis/frame-check.js';
 
 export const U_SYS = 6;
 const VIS = 0.6;
@@ -37,7 +38,7 @@ export const COACH_KINDS = {
   'arm-raise': {
     tr: 'Kol kaldırma', view: 'front', dir: 'up', joint: 'omuz', start: 70, end: 55, minDepth: 40, perSide: true,
     setup: 'Telefonu göğüs hizasında, 2 m uzağa koyun ve kameraya dönün; kollarınız ve kalçanız görünsün.',
-    chain: ['Shoulder', 'Elbow'], ref: [['Shoulder', 'Elbow']], both: ['leftHip', 'rightHip', 'leftShoulder', 'rightShoulder'],
+    chain: ['Shoulder', 'Elbow'], ref: [['Shoulder', 'Elbow']], both: ['leftHip', 'rightHip', 'leftShoulder', 'rightShoulder'], frameCheck: true,
     // Gövde ekseni (omuz ortası → kalça ortası) ile üst kol arasındaki açı; movement.js kol kaldırma testiyle aynı
     // tanım. Aynı taraftaki kalça noktasını kullanmak, simetrik harekette 23° sahte sağ–sol fark üretti
     // (scripts/coach-bench.mjs, kol-simetrik dizisi).
@@ -72,7 +73,8 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8, vali
   const sides = Object.fromEntries(SIDES.map(([S]) => [S, {
     raw: [], ref: null, calib: [], phase: 'ready', cur: null, reps: [],
   }]));
-  let frames = 0, usable = 0, lastT = null, firstT = null;
+  let frames = 0, usable = 0, lastT = null, firstT = null, rejected = 0;
+  const widthCalib = []; let refWidth = null;
   const dts = [];
 
   function sideAngle(lm, s) {
@@ -124,8 +126,18 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8, vali
       lastT = t;
       const angle = {};
       let newRep = null, anyVisible = false;
+      // Anatomik tutarlılık kapısı (tarama testiyle aynı kural, src/analysis/frame-check.js)
+      let frameBad = false;
+      if (K.frameCheck && lm) {
+        if (!refWidth) {
+          widthCalib.push(Math.abs(lm[MP.leftShoulder][0] - lm[MP.rightShoulder][0]));
+          if (widthCalib.length >= calibFrames) refWidth = median(widthCalib);
+        }
+        frameBad = !frontArmFrameOk(lm, { refWidth }).ok;
+        if (frameBad) rejected++;
+      }
       for (const [S, s] of SIDES) {
-        if (!lm) { angle[S] = null; continue; }
+        if (!lm || frameBad) { angle[S] = null; if (frameBad) step(S, s, NaN, t); continue; }
         const st = sides[S];
         let { a, lens } = sideAngle(lm, s);
         if (Number.isFinite(a)) {
@@ -179,6 +191,7 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8, vali
       if (frames < 15) reasons.push('Çok kısa kayıt.');
       if (coverage < 0.7) reasons.push(`Gerekli eklemler karelerin yalnızca %${Math.round(coverage * 100)}'inde net göründü (en az %70 gerekir).`);
       if (reps < 2) reasons.push('Belirsizlik hesabı için en az 2 tekrar gerekir.');
+      if (frames && rejected > frames * 0.2) reasons.push(`Vücut takibi karelerin %${Math.round((rejected / frames) * 100)}'inde kolları tutarsız konumladı (sol/sağ karışması).`);
       if (counted.extreme.u != null && counted.extreme.u > 12) reasons.push(`Tekrarlar arası açı dağınıklığı yüksek (±${counted.extreme.u}°).`);
       const reliable = reasons.length === 0;
       // Yandan görünüşte uzak taraf gizlidir: sağ–sol karşılaştırması yapılmaz (yalnızca önden).
@@ -195,7 +208,7 @@ export function createCoach(kind, { width = 1, height = 1, calibFrames = 8, vali
       if (angleUnreliable) asym = null;
       return {
         angleUnreliable, angleNote: angleUnreliable ? `${STATUS_TEXT.guvenilmez} ${angleStatus.why}` : null,
-        kind, tr: K.tr, reps, coverage: +coverage.toFixed(2), fps, durationS: lastT != null ? +(lastT - firstT).toFixed(1) : 0, reliable, reasons,
+        kind, tr: K.tr, reps, coverage: +coverage.toFixed(2), fps, rejectedFrames: rejected, durationS: lastT != null ? +(lastT - firstT).toFixed(1) : 0, reliable, reasons,
         sides: reliable && !angleUnreliable ? per : null, asym,
         observations: reliable && !angleUnreliable ? observations(K, per, asym) : [],
       };
