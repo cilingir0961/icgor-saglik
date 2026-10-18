@@ -6,6 +6,8 @@ import { computeBodyFrame, FRAME_ERROR_MESSAGES_TR } from './anatomy/body-frame.
 import { buildOrganMeshes, buildDrawList, orbitTransform } from './render/scene.js';
 import { paintDrawList, paintLabels } from './render/canvas-renderer.js';
 import { CameraSource, describeCameraError } from './camera/camera-source.js';
+import { DicomViewer, loadDicomFiles, PLANES } from './dicom/viewer.js';
+import { makePhantom } from './dicom/phantom.js';
 
 const $ = (sel) => document.querySelector(sel);
 const canvas = $('#stage');
@@ -14,6 +16,7 @@ const video = $('#video');
 const statusEl = $('#status');
 const camera = new CameraSource(video);
 const meshes = buildOrganMeshes(ORGANS);
+const viewer = new DicomViewer();
 
 const LANDMARKS = [
   { key: 'rightShoulder', label: 'Sağ omuz' },
@@ -23,7 +26,8 @@ const LANDMARKS = [
 ];
 
 const state = {
-  mode: 'camera', // 'camera' | 'orbit'
+  mode: 'camera', // 'camera' | 'orbit' | 'dicom'
+  notice: null, // geçici uyarı: {text, until}
   visible: new Set(ORGANS.map((o) => o.id)),
   labels: true,
   alpha: 0.8,
@@ -119,25 +123,37 @@ function render() {
     if (res.ok) {
       const toScreen = res.frame.toScreen;
       paintDrawList(ctx, buildDrawList(meshes, toScreen, { visible: state.visible, alpha: state.alpha }));
-      if (state.labels) paintLabels(ctx, ORGANS, toScreen, state.visible);
+      if (state.labels) paintLabels(ctx, ORGANS, toScreen, state.visible, { width: state.width, height: state.height });
       setStatus(res.frame.view === 'anterior' ? 'Önden görünüm (şematik)' : 'Arkadan görünüm (şematik)');
     } else {
       setStatus(FRAME_ERROR_MESSAGES_TR[res.reason] ?? res.reason, true);
     }
     drawHandles();
+  } else if (state.mode === 'dicom') {
+    viewer.draw(ctx, state.width, state.height);
+    setStatus(viewer.vol ? 'Kaydırarak/tekerle kesit değiştirin, dokunarak değer okuyun' : 'DICOM aç veya Fantom ile başlayın');
+    syncDicomControls();
   } else {
     ctx.fillStyle = '#10161c';
     ctx.fillRect(0, 0, state.width, state.height);
     const toScreen = orbitTransform({ ...state.orbit, width: state.width, height: state.height });
     paintDrawList(ctx, buildDrawList(meshes, toScreen, { visible: state.visible, alpha: state.alpha }));
-    if (state.labels) paintLabels(ctx, ORGANS, toScreen, state.visible);
+    if (state.labels) paintLabels(ctx, ORGANS, toScreen, state.visible, { width: state.width, height: state.height });
     setStatus('Serbest 3B görünüm: sürükleyerek döndürün, iki parmakla/tekerle yakınlaştırın');
   }
 }
 
 function setStatus(text, warn = false) {
+  // Geçici uyarı (ör. kamera izni reddedildi) süresi dolana kadar normal durumu bastırır.
+  if (state.notice && performance.now() < state.notice.until) ({ text, warn } = { text: state.notice.text, warn: true });
   if (statusEl.textContent !== text) statusEl.textContent = text;
   statusEl.classList.toggle('warn', warn);
+}
+
+function notify(text, ms = 6000) {
+  state.notice = { text, until: performance.now() + ms };
+  state.dirty = true;
+  setTimeout(() => { state.dirty = true; }, ms + 50);
 }
 
 function loop() {
@@ -153,12 +169,15 @@ function loop() {
 const pointers = new Map();
 let dragKey = null;
 let pinchStart = null;
+let dicomDrag = null;
 
 canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
   if (state.mode === 'camera') {
     dragKey = nearestHandle(e.offsetX, e.offsetY);
+  } else if (state.mode === 'dicom') {
+    dicomDrag = { y: e.offsetY, start: viewer.sliceIndex, moved: false };
   } else if (pointers.size === 2) {
     pinchStart = { dist: pointerDistance(), zoom: state.orbit.zoom };
   }
@@ -171,6 +190,9 @@ canvas.addEventListener('pointermove', (e) => {
   pointers.set(e.pointerId, cur);
   if (state.mode === 'camera') {
     if (dragKey) state.landmarks[dragKey] = clampToStage(cur);
+  } else if (state.mode === 'dicom') {
+    if (dicomDrag && Math.abs(cur[1] - dicomDrag.y) > 6) dicomDrag.moved = true;
+    if (dicomDrag?.moved) viewer.setSlice(dicomDrag.start + (cur[1] - dicomDrag.y) / 4);
   } else if (pointers.size === 2 && pinchStart) {
     state.orbit.zoom = clamp(pinchStart.zoom * (pointerDistance() / pinchStart.dist), 0.4, 4);
   } else if (pointers.size === 1) {
@@ -182,6 +204,11 @@ canvas.addEventListener('pointermove', (e) => {
 
 const endPointer = (e) => {
   pointers.delete(e.pointerId);
+  if (state.mode === 'dicom' && dicomDrag && !dicomDrag.moved && e.type === 'pointerup') {
+    viewer.probeAt(e.offsetX, e.offsetY); // dokunma = değer okuma
+    state.dirty = true;
+  }
+  if (pointers.size === 0) dicomDrag = null;
   if (pointers.size < 2) pinchStart = null;
   if (pointers.size === 0) dragKey = null;
 };
@@ -189,6 +216,12 @@ canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 
 canvas.addEventListener('wheel', (e) => {
+  if (state.mode === 'dicom') {
+    e.preventDefault();
+    viewer.setSlice(viewer.sliceIndex + Math.sign(e.deltaY));
+    state.dirty = true;
+    return;
+  }
   if (state.mode !== 'orbit') return;
   e.preventDefault();
   state.orbit.zoom = clamp(state.orbit.zoom * Math.exp(-e.deltaY * 0.001), 0.4, 4);
@@ -215,6 +248,7 @@ const pointerDistance = () => {
 // ---------- Kontroller ----------
 
 function setMode(mode) {
+  if (mode !== 'camera' && camera.active) $('#btn-camera').click(); // pil ve gizlilik
   state.mode = mode;
   document.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
   document.body.dataset.mode = mode;
@@ -229,7 +263,7 @@ async function withCamera(action) {
     $('#btn-camera').textContent = 'Kamerayı kapat';
     $('#btn-flip').disabled = false;
   } catch (e) {
-    setStatus(describeCameraError(e), true);
+    notify(describeCameraError(e));
   }
   state.dirty = true;
 }
@@ -257,7 +291,8 @@ $('#rng-alpha').addEventListener('input', (e) => { state.alpha = Number(e.target
 const organList = $('#organ-list');
 for (const o of ORGANS) {
   const label = document.createElement('label');
-  label.innerHTML = `<input type="checkbox" checked> <span class="swatch" style="background:${o.color}"></span> `;
+  label.innerHTML = '<input type="checkbox" checked> <span class="swatch"></span> ';
+  label.querySelector('.swatch').style.background = o.color; // CSP: satır içi style özniteliği yok
   label.append(o.tr);
   label.querySelector('input').addEventListener('change', (e) => {
     if (e.target.checked) state.visible.add(o.id);
@@ -265,6 +300,42 @@ for (const o of ORGANS) {
     state.dirty = true;
   });
   organList.append(label);
+}
+
+// ---------- DICOM kontrolleri ----------
+
+const planeSel = $('#sel-plane');
+for (const [id, label] of Object.entries(PLANES)) planeSel.append(new Option(label, id));
+planeSel.addEventListener('change', () => { viewer.plane = planeSel.value; state.dirty = true; });
+$('#sel-window').addEventListener('change', (e) => { viewer.setPreset(e.target.value); state.dirty = true; });
+const sliceRange = $('#rng-slice');
+sliceRange.addEventListener('input', () => { viewer.setSlice(Number(sliceRange.value)); state.dirty = true; });
+
+function syncDicomControls() {
+  const n = viewer.sliceCount;
+  sliceRange.disabled = n <= 1;
+  sliceRange.max = String(Math.max(0, n - 1));
+  sliceRange.value = String(viewer.sliceIndex);
+  $('#dicom-warnings').textContent = viewer.vol?.warnings.join(' ') ?? '';
+}
+
+$('#btn-dicom-open').addEventListener('click', () => $('#file-dicom').click());
+$('#file-dicom').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  if (files.length === 0) return;
+  try {
+    const vol = await loadDicomFiles(files, (d, n) => { statusEl.textContent = `Okunuyor ${d}/${n}…`; });
+    viewer.setVolume(vol);
+  } catch (err) {
+    notify(err.message);
+  }
+  e.target.value = '';
+  state.dirty = true;
+});
+$('#btn-phantom').addEventListener('click', loadPhantom);
+function loadPhantom() {
+  viewer.setVolume(makePhantom());
+  state.dirty = true;
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -276,6 +347,7 @@ new ResizeObserver(resize).observe(canvas);
 resize();
 // Paylaşılabilir/test edilebilir başlangıç durumu: #orbit veya #camera (kamerayı hemen açar).
 const hash = location.hash.slice(1);
-setMode(hash === 'orbit' ? 'orbit' : 'camera');
+setMode(['orbit', 'dicom'].includes(hash) ? hash : 'camera');
 if (hash === 'camera') withCamera(() => camera.start());
+if (hash === 'dicom-fantom') { setMode('dicom'); loadPhantom(); }
 requestAnimationFrame(loop);

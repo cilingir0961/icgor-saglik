@@ -7,17 +7,20 @@
 //   - yatay taşma yok
 //   - her mod beklenen durum mesajını gösteriyor
 //   - #camera ile sahte kamera açılıyor ve video kare üretiyor
+//   - CSP ihlali yok
+//   - DICOM modu: fantom yükleniyor; sentetik .dcm dosyaları dosya seçiciyle açılıyor
 
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
+import { writePhantomSeries } from './make-sample-dicom.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUT = resolve(process.argv[2] ?? join(ROOT, 'smoke-out'));
 const CHROME = process.env.CHROME ?? ['/usr/bin/chromium', '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find(existsSync);
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -38,6 +41,9 @@ function serve() {
 async function launchChrome() {
   const proc = spawn(CHROME, [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=0',
+    // Tarayıcının kendi arka plan ağ trafiğini kapat: test tamamen çevrimdışı çalışmalı.
+    '--disable-background-networking', '--disable-component-update', '--disable-sync',
+    '--disable-default-apps', '--no-first-run', '--disable-domain-reliability',
     '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
     `--user-data-dir=${join(OUT, '.profile')}`, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -90,36 +96,48 @@ const CASES = [
   { hash: '', expectStatus: /Önden görünüm/ },
   { hash: 'orbit', expectStatus: /Serbest 3B/ },
   { hash: 'camera', expectStatus: /Önden görünüm/, expectCamera: true },
+  { hash: 'dicom', expectStatus: /DICOM aç veya Fantom/ },
+  { hash: 'dicom-fantom', expectStatus: /kesit değiştirin/, expectSlices: true },
+  { hash: 'dicom', expectStatus: /kesit değiştirin/, expectSlices: true, uploadDicom: true },
 ];
 
 async function run() {
   await mkdir(OUT, { recursive: true });
   const server = await serve();
   const base = `http://127.0.0.1:${server.address().port}/index.html`;
+  const dicomFiles = await writePhantomSeries(join(OUT, 'dicom'), 8);
   const { proc, wsUrl } = await launchChrome();
   const cdp = await CDP.connect(wsUrl);
   const results = [];
   try {
     for (const vp of VIEWPORTS) {
       for (const c of CASES) {
-        const name = `${vp.name}-${c.hash || 'varsayilan'}`;
+        const name = `${vp.name}-${c.hash || 'varsayilan'}${c.uploadDicom ? '-dosya' : ''}`;
         const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
         const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
         const errors = [];
         const onEvent = (m) => {
           if (m.sessionId !== sessionId) return;
           if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
+          if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') errors.push(m.params.entry.text);
           if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map((a) => a.value ?? a.description).join(' '));
         };
         cdp.listeners.push(onEvent);
         await cdp.send('Runtime.enable', {}, sessionId);
         await cdp.send('Page.enable', {}, sessionId);
+        await cdp.send('Log.enable', {}, sessionId);
         await cdp.send('Emulation.setDeviceMetricsOverride', {
           width: vp.width, height: vp.height, deviceScaleFactor: vp.dpr, mobile: vp.mobile,
         }, sessionId);
         if (vp.mobile) await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true }, sessionId);
         await cdp.send('Page.navigate', { url: `${base}#${c.hash}` }, sessionId);
         await sleep(c.expectCamera ? 2500 : 1200);
+        if (c.uploadDicom) {
+          const { root } = await cdp.send('DOM.getDocument', {}, sessionId);
+          const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: '#file-dicom' }, sessionId);
+          await cdp.send('DOM.setFileInputFiles', { nodeId, files: dicomFiles }, sessionId);
+          await sleep(2000);
+        }
 
         const { result } = await cdp.send('Runtime.evaluate', {
           returnByValue: true,
@@ -128,6 +146,8 @@ async function run() {
             overflowX: document.documentElement.scrollWidth - innerWidth,
             cameraButton: document.querySelector('#btn-camera').textContent,
             videoFrames: document.querySelector('#video').videoWidth,
+            sliceMax: Number(document.querySelector('#rng-slice').max),
+            warnings: document.querySelector('#dicom-warnings').textContent,
           })`,
         }, sessionId);
         const v = result.value;
@@ -140,6 +160,9 @@ async function run() {
         if (c.expectCamera && !(v.cameraButton === 'Kamerayı kapat' && v.videoFrames > 0)) {
           problems.push(`kamera açılmadı (buton: "${v.cameraButton}", video genişliği: ${v.videoFrames})`);
         }
+        if (c.expectSlices && !(v.sliceMax > 10)) problems.push(`kesit kaydırıcı hazır değil (max=${v.sliceMax})`);
+        if (c.uploadDicom && v.sliceMax + 1 !== dicomFiles.length) problems.push(`kesit sayısı ${v.sliceMax + 1}, beklenen ${dicomFiles.length}`);
+        if (c.uploadDicom && v.warnings) problems.push(`beklenmeyen uyarı: ${v.warnings}`);
         results.push({ name, ok: problems.length === 0, problems });
         cdp.listeners = cdp.listeners.filter((l) => l !== onEvent);
         await cdp.send('Target.closeTarget', { targetId });

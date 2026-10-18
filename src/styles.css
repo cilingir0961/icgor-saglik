@@ -37,6 +37,11 @@ button, summary {
   min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #2d3b48;
   background: #223040; color: var(--text); font: inherit; cursor: pointer;
 }
+select { min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid #2d3b48; background: #223040; color: var(--text); font: inherit; }
+.slice { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; flex: 1 1 160px; }
+.slice input { flex: 1; }
+#dicom-warnings:empty { display: none; }
+#dicom-warnings { flex-basis: 100%; color: var(--warn); }
 button:disabled { opacity: 0.45; cursor: default; }
 summary { display: inline-flex; align-items: center; list-style: none; }
 .seg { display: inline-flex; }
@@ -49,7 +54,9 @@ summary { display: inline-flex; align-items: center; list-style: none; }
 .organ-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; }
 .hint { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-body[data-mode="orbit"] .camera-only { display: none; }
+body:not([data-mode="camera"]) .camera-only { display: none; }
+body:not([data-mode="dicom"]) .dicom-only { display: none; }
+body[data-mode="dicom"] .not-dicom { display: none; }
 @media (min-width: 720px) {
   .panel { flex-basis: auto; }
 }

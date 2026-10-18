@@ -12,7 +12,11 @@ Kamera tabanlı **şematik** 3B anatomi görüntüleme prototipi.
 - **Kamera modu:** Telefon veya bilgisayar kamerasının görüntüsü üzerine, omuz ve kalça
   noktalarına hizalanmış şematik organ modeli çizer. Noktalar şimdilik elle sürüklenir.
 - **3B modu:** Aynı modeli serbestçe döndürüp yakınlaştırma (dokunmatik ve fare).
-- Görüntü cihazdan çıkmaz; sunucu, analitik veya dış servis yok.
+- **DICOM modu:** Kendi BT/MR serinizi (sıkıştırılmamış DICOM) açıp aksiyel/koronal/sajital
+  kesitleri ve MIP'i görüntüleme; pencere ön ayarları, dokunarak HU okuma. Gerçek veri olmadan
+  denemek için **Fantom** düğmesi atlastan sentetik bir BT üretir.
+- Görüntü ve dosyalar cihazdan çıkmaz; sunucu, analitik veya dış servis yok. İçerik Güvenlik
+  Politikası (CSP) sayfanın dış adrese bağlanmasını tarayıcı düzeyinde engeller.
 
 ## Çalıştırma
 
@@ -24,7 +28,8 @@ npm test             # birim testleri (node:test)
 npm run smoke        # headless Chromium ile telefon + masaüstü tarayıcı testi
 ```
 
-URL sonuna `#orbit` (3B modu) veya `#camera` (kamerayı hemen aç) eklenebilir.
+URL sonuna `#orbit`, `#dicom`, `#dicom-fantom` veya `#camera` (kamerayı hemen aç) eklenebilir.
+Sentetik DICOM dosyaları üretmek için: `node scripts/make-sample-dicom.mjs ornek-dicom`.
 
 ## Telefondan ve bilgisayardan geliştirme
 

@@ -1,3 +1,5 @@
+import { layoutLabels } from './labels.js';
+
 // Canvas 2D çizici: çizim listesini (scene.js) düz gölgeli üçgenler olarak boyar.
 // İlk prototip için bilinçli olarak WebGL/Three.js yerine Canvas 2D seçildi: bağımlılık yok,
 // her tarayıcıda çalışır; ~2–3 bin üçgen için telefonlarda yeterince hızlı.
@@ -30,18 +32,30 @@ export function paintDrawList(ctx, list) {
   }
 }
 
-/** Organ adlarını, organ merkezinin ekran konumuna yazar. */
-export function paintLabels(ctx, organs, toScreen, visible) {
+/** Organ adlarını gövdenin iki yanına, çakışmadan ve organa çizgiyle bağlı olarak yazar. */
+export function paintLabels(ctx, organs, toScreen, visible, size) {
   ctx.font = '600 12px system-ui, sans-serif';
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const o of organs) {
-    if (visible && !visible.has(o.id)) continue;
-    const [x, y] = toScreen(o.center);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
-    ctx.strokeText(o.tr, x, y);
+  const items = organs
+    .filter((o) => !visible || visible.has(o.id))
+    .map((o) => ({ id: o.id, text: o.tr, anchor: toScreen(o.center) }));
+  const placed = layoutLabels(items, { ...size, measure: (t) => ctx.measureText(t).width });
+  for (const l of placed) {
+    const textEdge = l.align === 'right' ? l.x + 4 : l.x - 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(textEdge, l.y);
+    ctx.lineTo(l.anchor[0], l.anchor[1]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(l.anchor[0], l.anchor[1], 2.5, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';
-    ctx.fillText(o.tr, x, y);
+    ctx.fill();
+    ctx.textAlign = l.align;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.strokeText(l.text, l.x, l.y);
+    ctx.fillText(l.text, l.x, l.y);
   }
 }
